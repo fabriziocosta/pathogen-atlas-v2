@@ -3,18 +3,28 @@
 from __future__ import annotations
 
 import importlib
+import json
+import textwrap
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from pathogen_atlas_v2.abstracts.abstract_exports import run_phase2
+from pathogen_atlas_v2.abstracts.abstract_exports import (
+    run_phase2,
+    run_phase2_abstract_fetch,
+    run_phase2_pmid_acquisition,
+)
 from pathogen_atlas_v2.abstracts.pubmed_client import PubMedClientError
 from pathogen_atlas_v2.abstracts.pubmed_query_plan import (
     PubMedQueryPlanError,
     materialize_pubmed_query_plan,
 )
-from pathogen_atlas_v2.abstracts.pubmed_query_templates import load_pubmed_query_template_config
+from pathogen_atlas_v2.abstracts.pubmed_query_templates import (
+    load_abstract_filter_terms,
+    load_pubmed_query_template_config,
+    render_pubmed_query,
+)
 from pathogen_atlas_v2.common.io import load_yaml, resolve_path
 from pathogen_atlas_v2.species.acquire import SpeciesAcquisitionError
 from pathogen_atlas_v2.species.export_mappings import run_phase1
@@ -64,6 +74,44 @@ def run_phase_2(
         return {"status": "not_run", "reason": str(exc)}
 
 
+def run_phase_2_pmid_acquisition(
+    template_config_path: str = "configs/pubmed_query_templates.yaml",
+    filter_config_path: str = "configs/abstract_filters.yaml",
+    force_refresh: bool = False,
+    log_every: int = 25,
+) -> dict[str, Any]:
+    """Run resumable Phase 2 PMID acquisition."""
+    try:
+        return run_phase2_pmid_acquisition(
+            template_config_path,
+            filter_config_path,
+            force_refresh=force_refresh,
+            log=True,
+            log_every=log_every,
+        )
+    except (PubMedClientError, PubMedQueryPlanError) as exc:
+        return {"status": "not_run", "reason": str(exc)}
+
+
+def run_phase_2_abstract_fetch(
+    template_config_path: str = "configs/pubmed_query_templates.yaml",
+    filter_config_path: str = "configs/abstract_filters.yaml",
+    force_refresh: bool = False,
+    log_every: int = 10,
+) -> dict[str, Any]:
+    """Run resumable Phase 2 abstract fetching and table export."""
+    try:
+        return run_phase2_abstract_fetch(
+            template_config_path,
+            filter_config_path,
+            force_refresh=force_refresh,
+            log=True,
+            log_every=log_every,
+        )
+    except (PubMedClientError, PubMedQueryPlanError) as exc:
+        return {"status": "not_run", "reason": str(exc)}
+
+
 def metadata_overview(metadata: dict[str, Any]) -> pd.DataFrame:
     """Return compact top-level metadata fields as a DataFrame."""
     if not metadata:
@@ -102,16 +150,10 @@ def metadata_outputs(metadata: dict[str, Any]) -> pd.DataFrame:
     outputs = metadata.get("outputs", {}) if isinstance(metadata, dict) else {}
     rows = []
     for name, path in outputs.items():
-        output_path = Path(path)
-        rows.append(
-            {
-                "name": name,
-                "path": str(output_path),
-                "exists": output_path.exists(),
-                "size_bytes": output_path.stat().st_size if output_path.exists() else 0,
-            }
-        )
-    return pd.DataFrame(rows) if rows else pd.DataFrame([{"status": "no_outputs"}])
+        row = output_path_summary(path)
+        row["name"] = name
+        rows.append(row)
+    return pd.DataFrame(rows)[["name", "path", "exists", "rows", "size_bytes", "content_type"]] if rows else pd.DataFrame([{"status": "no_outputs"}])
 
 
 def metadata_v1_comparison(metadata: dict[str, Any]) -> pd.DataFrame:
@@ -195,7 +237,8 @@ def phase2_query_plan_preview(query_plan_path: str | Path, n_rows: int = 20) -> 
             {
                 "query_id": query.get("query_id"),
                 "canonical_species": query.get("canonical_species"),
-                "matched_name": query.get("matched_name"),
+                "synonym_count": query.get("synonym_count"),
+                "matched_names": ", ".join(query.get("matched_names", [])[:6]),
                 "field": query.get("field"),
                 "template_id": query.get("template_id"),
                 "query": query.get("query"),
@@ -204,19 +247,250 @@ def phase2_query_plan_preview(query_plan_path: str | Path, n_rows: int = 20) -> 
     return pd.DataFrame(rows)
 
 
+def phase2_synonym_counts(query_plan_path: str | Path) -> pd.DataFrame:
+    """Return one row per canonical species with matched-name and synonym counts."""
+    path = Path(query_plan_path)
+    if not path.exists():
+        return pd.DataFrame([{"status": "missing", "path": str(path)}])
+    plan = load_yaml(path)
+    rows = []
+    by_species: dict[str, dict[str, Any]] = {}
+    for query in plan.get("queries", []):
+        canonical_species = query.get("canonical_species")
+        if not canonical_species:
+            continue
+        matched_names = list(dict.fromkeys(query.get("matched_names", [])))
+        current = by_species.get(canonical_species)
+        if current is None or len(matched_names) > len(current["matched_names"]):
+            by_species[canonical_species] = {
+                "canonical_species": canonical_species,
+                "matched_names": matched_names,
+            }
+    for item in by_species.values():
+        rows.append(
+            {
+                "canonical_species": item["canonical_species"],
+                "matched_name_count": len(item["matched_names"]),
+                "synonym_count": max(len(item["matched_names"]) - 1, 0),
+                "matched_names": ", ".join(item["matched_names"]),
+            }
+        )
+    if not rows:
+        return pd.DataFrame([{"status": "empty_query_plan", "path": str(path)}])
+    return pd.DataFrame(rows).sort_values(["synonym_count", "canonical_species"], ascending=[False, True]).reset_index(drop=True)
+
+
+def phase2_synonym_distribution_summary(query_plan_path: str | Path) -> pd.DataFrame:
+    """Return summary statistics for the number of synonyms per canonical species."""
+    counts = phase2_synonym_counts(query_plan_path)
+    if "synonym_count" not in counts.columns:
+        return counts
+    synonyms = counts["synonym_count"]
+    return pd.DataFrame(
+        [
+            {
+                "canonical_species": int(len(counts)),
+                "species_with_synonyms": int((synonyms > 0).sum()),
+                "species_without_synonyms": int((synonyms == 0).sum()),
+                "mean_synonyms": float(synonyms.mean()),
+                "median_synonyms": float(synonyms.median()),
+                "max_synonyms": int(synonyms.max()),
+            }
+        ]
+    )
+
+
+def phase2_synonym_distribution_histogram(query_plan_path: str | Path, bar_width: int = 60) -> pd.DataFrame:
+    """Return a compact histogram table for synonym counts per canonical species."""
+    counts = phase2_synonym_counts(query_plan_path)
+    if "synonym_count" not in counts.columns:
+        return counts
+    histogram = counts["synonym_count"].value_counts().sort_index().rename_axis("synonym_count").reset_index(name="species_count")
+    max_count = int(histogram["species_count"].max()) if not histogram.empty else 0
+    histogram["fraction"] = histogram["species_count"] / int(histogram["species_count"].sum())
+    histogram["histogram"] = histogram["species_count"].apply(
+        lambda value: "#" * max(1, round((int(value) / max_count) * bar_width)) if max_count else ""
+    )
+    return histogram
+
+
+def plot_phase2_synonym_distribution(query_plan_path: str | Path):
+    """Render a matplotlib histogram of synonym counts per canonical species."""
+    import matplotlib.pyplot as plt
+
+    counts = phase2_synonym_counts(query_plan_path)
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    if "synonym_count" not in counts.columns:
+        ax.text(0.5, 0.5, "No synonym counts available", ha="center", va="center")
+        ax.set_axis_off()
+        return fig
+
+    values = counts["synonym_count"].astype(int)
+    max_value = int(values.max()) if not values.empty else 0
+    bins = range(0, max_value + 2)
+    ax.hist(values, bins=bins, align="left", rwidth=0.82, color="#2f6f9f", edgecolor="#1d3f5e")
+    ax.set_title("Synonyms Per Canonical Species")
+    ax.set_xlabel("Number of synonyms")
+    ax.set_ylabel("Canonical species")
+    ax.set_xticks(list(range(0, max_value + 1)))
+    ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+    return fig
+
+
+def phase2_query_template_text(config_path: str = "configs/pubmed_query_templates.yaml", template_id: str | None = None) -> str:
+    """Return a tracked PubMed query template string with placeholders."""
+    config = load_pubmed_query_template_config(config_path)
+    templates = config.get("templates", [])
+    if not templates:
+        return "No query templates configured."
+    if template_id is None:
+        return str(templates[0].get("template", ""))
+    for template in templates:
+        if template.get("id") == template_id:
+            return str(template.get("template", ""))
+    return f"Template not found: {template_id}"
+
+
+FALLBACK_SYNONYM_EXAMPLE_NAMES = ["Abiotrophia adiacens", "Granulicatella adiacens"]
+FALLBACK_SYNONYM_EXAMPLE_CANONICAL = "Granulicatella adiacens"
+
+
+def _phase2_select_query_example(
+    query_plan_path: str | Path,
+    template_config_path: str = "configs/pubmed_query_templates.yaml",
+    filter_config_path: str = "configs/abstract_filters.yaml",
+    query_index: int = 0,
+    prefer_synonyms: bool = True,
+) -> dict[str, Any]:
+    """Select a concrete query example, preferring the richest synonym query."""
+    path = Path(query_plan_path)
+    if not path.exists():
+        return {"status": "missing", "path": str(path), "query": f"Query plan missing: {path}"}
+    plan = load_yaml(path)
+    queries = plan.get("queries", [])
+    if not queries:
+        return {"status": "empty_query_plan", "path": str(path), "query": "Query plan contains no rendered queries."}
+    if prefer_synonyms:
+        query = max(queries, key=lambda item: len(item.get("matched_names", [])))
+        if len(query.get("matched_names", [])) > 1:
+            return {"status": "from_query_plan", **query}
+        config = load_pubmed_query_template_config(template_config_path)
+        terms = load_abstract_filter_terms(filter_config_path)
+        template = config["templates"][0]
+        source = config["source"]
+        field = str(source["fields"][0])
+        return {
+            "status": "fallback_no_synonyms_in_query_plan",
+            "canonical_species": FALLBACK_SYNONYM_EXAMPLE_CANONICAL,
+            "matched_names": FALLBACK_SYNONYM_EXAMPLE_NAMES,
+            "mapping_types": ["accepted", "synonym"],
+            "synonym_count": len(FALLBACK_SYNONYM_EXAMPLE_NAMES),
+            "field": field,
+            "template_id": template["id"],
+            "query": render_pubmed_query(
+                template=template["template"],
+                matched_names=FALLBACK_SYNONYM_EXAMPLE_NAMES,
+                field=field,
+                human_terms=terms["human_context"],
+                infection_terms=terms["infection_context"],
+                min_year=int(source["min_year"]),
+                max_year=int(source["max_year"]),
+            ),
+        }
+    query_index = min(max(query_index, 0), len(queries) - 1)
+    return {"status": "from_query_plan", **queries[query_index]}
+
+
+def phase2_concrete_query_example_text(
+    query_plan_path: str | Path,
+    template_config_path: str = "configs/pubmed_query_templates.yaml",
+    filter_config_path: str = "configs/abstract_filters.yaml",
+    query_index: int = 0,
+    prefer_synonyms: bool = True,
+) -> str:
+    """Return one fully rendered PubMed query string."""
+    query = _phase2_select_query_example(
+        query_plan_path,
+        template_config_path=template_config_path,
+        filter_config_path=filter_config_path,
+        query_index=query_index,
+        prefer_synonyms=prefer_synonyms,
+    )
+    return str(query.get("query", ""))
+
+
+def phase2_concrete_query_example_metadata(
+    query_plan_path: str | Path,
+    template_config_path: str = "configs/pubmed_query_templates.yaml",
+    filter_config_path: str = "configs/abstract_filters.yaml",
+    query_index: int = 0,
+    prefer_synonyms: bool = True,
+) -> pd.DataFrame:
+    """Return metadata for the selected concrete PubMed query example."""
+    query = _phase2_select_query_example(
+        query_plan_path,
+        template_config_path=template_config_path,
+        filter_config_path=filter_config_path,
+        query_index=query_index,
+        prefer_synonyms=prefer_synonyms,
+    )
+    return pd.DataFrame(
+        [
+            {
+                "status": query.get("status"),
+                "canonical_species": query.get("canonical_species"),
+                "synonym_count": query.get("synonym_count"),
+                "field": query.get("field"),
+                "template_id": query.get("template_id"),
+                "matched_names": ", ".join(query.get("matched_names", [])),
+            }
+        ]
+    )
+
+
+def wrap_text(text: str, width: int = 100) -> str:
+    """Wrap long display text for readable notebook output."""
+    return textwrap.fill(str(text), width=width, break_long_words=False, break_on_hyphens=False)
+
+
 def existing_outputs(paths: dict[str, Path]) -> pd.DataFrame:
     """Summarise configured output files."""
     rows = []
     for name, path in paths.items():
-        rows.append(
-            {
-                "name": name,
-                "path": str(path),
-                "exists": path.exists(),
-                "size_bytes": path.stat().st_size if path.exists() else 0,
-            }
-        )
-    return pd.DataFrame(rows)
+        row = output_path_summary(path)
+        row["name"] = name
+        rows.append(row)
+    return pd.DataFrame(rows)[["name", "path", "exists", "rows", "size_bytes", "content_type"]]
+
+
+def output_path_summary(path: str | Path) -> dict[str, Any]:
+    """Summarise an output file with row/entry counts when possible."""
+    path = Path(path)
+    row: dict[str, Any] = {
+        "path": str(path),
+        "exists": path.exists(),
+        "rows": None,
+        "size_bytes": path.stat().st_size if path.exists() else 0,
+        "content_type": path.suffix.lstrip(".") or "unknown",
+    }
+    if not path.exists() or path.is_dir():
+        return row
+    try:
+        if path.suffix == ".parquet":
+            row["rows"] = int(pd.read_parquet(path).shape[0])
+        elif path.suffix == ".csv":
+            row["rows"] = int(sum(1 for _ in path.open("r", encoding="utf-8")) - 1)
+        elif path.suffix == ".jsonl":
+            row["rows"] = int(sum(1 for line in path.open("r", encoding="utf-8") if line.strip()))
+        elif path.suffix == ".json":
+            with path.open("r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            row["rows"] = len(data) if isinstance(data, list) else 1
+    except Exception as exc:
+        row["rows"] = None
+        row["content_type"] = f"{row['content_type']}: count_error={type(exc).__name__}"
+    return row
 
 
 def read_table_if_exists(path: str | Path, n_rows: int = 10) -> pd.DataFrame:
@@ -229,6 +503,50 @@ def read_table_if_exists(path: str | Path, n_rows: int = 10) -> pd.DataFrame:
     if path.suffix == ".csv":
         return pd.read_csv(path, nrows=n_rows)
     return pd.DataFrame([{"status": "unsupported", "path": str(path)}])
+
+
+def table_stats_if_exists(path: str | Path) -> pd.DataFrame:
+    """Return compact stats for a parquet or CSV table."""
+    path = Path(path)
+    if not path.exists():
+        return pd.DataFrame([{"path": str(path), "exists": False}])
+    if path.suffix == ".parquet":
+        df = pd.read_parquet(path)
+    elif path.suffix == ".csv":
+        df = pd.read_csv(path)
+    else:
+        return pd.DataFrame([{"path": str(path), "exists": True, "status": "unsupported"}])
+    return pd.DataFrame(
+        [
+            {
+                "path": str(path),
+                "exists": True,
+                "rows": len(df),
+                "columns": len(df.columns),
+                "size_bytes": path.stat().st_size,
+            }
+        ]
+    )
+
+
+def phase2_table_stats(config_path: str = "configs/pubmed_query_templates.yaml") -> pd.DataFrame:
+    """Return stats for the Phase 2 parquet tables."""
+    paths = phase2_output_paths(config_path)
+    table_keys = [
+        "canonical_pmid_index_path",
+        "sampled_canonical_pmid_index_path",
+        "filtered_species_matches_path",
+        "filtered_filter_matches_path",
+        "release_abstracts_path",
+        "release_species_matches_path",
+        "release_filter_matches_path",
+    ]
+    frames = []
+    for key in table_keys:
+        stats = table_stats_if_exists(paths[key])
+        stats.insert(0, "table", key)
+        frames.append(stats)
+    return pd.concat(frames, ignore_index=True)
 
 
 def phase_not_implemented(phase: int, name: str, pipeline_module: str) -> pd.DataFrame:

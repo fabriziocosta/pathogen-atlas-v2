@@ -5,13 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 
 import nbformat
+import pandas as pd
 
 from pathogen_atlas_v2 import notebook_utils as nbutils
 
 
 EXPECTED_NOTEBOOKS = [
     "01_species_synonyms.ipynb",
-    "02_abstract_acquisition.ipynb",
+    "02_1_pubmed_query_plan.ipynb",
+    "02_2_pubmed_acquire_pmids.ipynb",
+    "02_3_pubmed_acquire_abstracts.ipynb",
+    "02_4_pubmed_table_stats.ipynb",
     "03_llm_extraction_vectorisation.ipynb",
     "04_table_creation.ipynb",
     "05_plot_creation.ipynb",
@@ -28,14 +32,30 @@ def test_phase_notebooks_exist_and_are_valid() -> None:
         assert "notebook_utils" in nb.cells[1].source
 
 
-def test_phase2_notebook_inspects_query_plan_before_acquisition() -> None:
-    nb = nbformat.read("notebooks/02_abstract_acquisition.ipynb", as_version=4)
+def test_phase2_query_plan_notebook_inspects_queries() -> None:
+    nb = nbformat.read("notebooks/02_1_pubmed_query_plan.ipynb", as_version=4)
     source = "\n".join(cell.source for cell in nb.cells if cell.cell_type == "code")
     assert "materialize_phase_2_query_plan" in source
+    assert "phase2_query_template_text" in source
+    assert "phase2_concrete_query_example_text" in source
+    assert "phase2_concrete_query_example_metadata" in source
+    assert "wrap_text" in source
+    assert "width=100" in source
     assert "phase2_query_plan_preview" in source
-    assert "RUN_ACQUISITION = False" in source
+    assert "phase2_synonym_distribution_summary" in source
+    assert "plot_phase2_synonym_distribution" in source
     assert source.index("materialize_phase_2_query_plan") < source.index("phase2_query_plan_preview")
-    assert source.index("phase2_query_plan_preview") < source.index("run_phase_2")
+
+
+def test_phase2_acquisition_notebooks_default_to_not_running_network() -> None:
+    pmid_nb = nbformat.read("notebooks/02_2_pubmed_acquire_pmids.ipynb", as_version=4)
+    abstract_nb = nbformat.read("notebooks/02_3_pubmed_acquire_abstracts.ipynb", as_version=4)
+    pmid_source = "\n".join(cell.source for cell in pmid_nb.cells if cell.cell_type == "code")
+    abstract_source = "\n".join(cell.source for cell in abstract_nb.cells if cell.cell_type == "code")
+    assert "RUN_PUBMED_SEARCH = False" in pmid_source
+    assert "run_phase_2_pmid_acquisition" in pmid_source
+    assert "RUN_ABSTRACT_FETCH = False" in abstract_source
+    assert "run_phase_2_abstract_fetch" in abstract_source
 
 
 def test_phase_notebooks_remain_thin() -> None:
@@ -60,3 +80,57 @@ def test_metadata_display_helpers_return_dataframes() -> None:
     assert summary["overview"].iloc[0]["field"] == "source"
     assert set(summary["counts"]["section"]) == {"record_counts", "mapping_diagnostics"}
     assert nbutils.metadata_v1_comparison(metadata).iloc[0]["metric"] == "available"
+
+
+def test_output_summaries_include_row_counts(tmp_path: Path) -> None:
+    parquet_path = tmp_path / "table.parquet"
+    jsonl_path = tmp_path / "records.jsonl"
+    json_path = tmp_path / "metadata.json"
+    pd.DataFrame([{"a": 1}, {"a": 2}]).to_parquet(parquet_path, index=False)
+    jsonl_path.write_text('{"a": 1}\n{"a": 2}\n{"a": 3}\n', encoding="utf-8")
+    json_path.write_text('{"record_counts": {"rows": 2}}\n', encoding="utf-8")
+
+    outputs = nbutils.existing_outputs({"parquet": parquet_path, "jsonl": jsonl_path, "json": json_path})
+
+    assert dict(zip(outputs["name"], outputs["rows"])) == {"parquet": 2, "jsonl": 3, "json": 1}
+    assert "size_bytes" in outputs.columns
+
+
+def test_phase2_concrete_query_example_prefers_synonyms(tmp_path: Path) -> None:
+    query_plan = tmp_path / "pubmed_query_plan.yaml"
+    query_plan.write_text(
+        """
+queries:
+  - query: '"Solo species"[Title/Abstract]'
+    canonical_species: Solo species
+    synonym_count: 1
+    matched_names:
+      - Solo species
+  - query: '"Synonym species"[Title/Abstract] OR "Canonical species"[Title/Abstract]'
+    canonical_species: Canonical species
+    synonym_count: 2
+    matched_names:
+      - Synonym species
+      - Canonical species
+  - query: '"Rich synonym one"[Title/Abstract] OR "Rich synonym two"[Title/Abstract] OR "Rich canonical"[Title/Abstract]'
+    canonical_species: Rich canonical
+    synonym_count: 3
+    matched_names:
+      - Rich synonym one
+      - Rich synonym two
+      - Rich canonical
+""",
+        encoding="utf-8",
+    )
+    query = nbutils.phase2_concrete_query_example_text(query_plan, prefer_synonyms=True)
+    assert "Rich synonym one" in query
+    assert "Rich canonical" in query
+
+    summary = nbutils.phase2_synonym_distribution_summary(query_plan)
+    histogram = nbutils.phase2_synonym_distribution_histogram(query_plan)
+    assert summary.loc[0, "canonical_species"] == 3
+    assert summary.loc[0, "max_synonyms"] == 2
+    assert set(histogram["synonym_count"]) == {0, 1, 2}
+    assert "histogram" in histogram.columns
+    fig = nbutils.plot_phase2_synonym_distribution(query_plan)
+    assert fig.axes[0].get_xlabel() == "Number of synonyms"

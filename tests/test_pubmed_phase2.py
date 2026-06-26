@@ -8,6 +8,12 @@ import pandas as pd
 import pytest
 
 from pathogen_atlas_v2.abstracts.abstract_exports import write_phase2_outputs
+from pathogen_atlas_v2.abstracts.abstract_exports import (
+    build_canonical_pmid_index,
+    run_pubmed_fetches,
+    run_pubmed_searches,
+    sample_canonical_pmids,
+)
 from pathogen_atlas_v2.abstracts.article_records import build_articles_dataframe, parse_pubmed_article_record
 from pathogen_atlas_v2.abstracts.filter_matches import build_filter_match_rows
 from pathogen_atlas_v2.abstracts.pubmed_client import (
@@ -85,6 +91,10 @@ source:
   request_delay_seconds: 0
   max_retries: 1
   retmax: 100
+  fetch_batch_size: 2
+  max_pmids_per_canonical_species: 2
+  oldest_pmids_per_canonical_species: 1
+  pmid_sample_random_seed: 42
 query_plan:
   path: {tmp_path / "data/02_abstracts/query_plan/pubmed_query_plan.yaml"}
   approval:
@@ -95,9 +105,11 @@ query_plan:
 templates:
   - id: exact_species_human_infection_context
     description: fixture
-    template: '("{{matched_name}}"[{{field}}]) AND ({{human_terms}}) AND ({{infection_terms}}) AND ("{{min_year}}"[Date - Publication] : "{{max_year}}"[Date - Publication])'
+    template: '({{matched_names}}) AND ({{human_terms}}) AND ({{infection_terms}}) AND ("{{min_year}}"[Date - Publication] : "{{max_year}}"[Date - Publication])'
 outputs:
   raw_search_results_path: {tmp_path / "data/02_abstracts/raw/pubmed_search_results.jsonl"}
+  canonical_pmid_index_path: {tmp_path / "data/02_abstracts/filtered/canonical_species_pmids.parquet"}
+  sampled_canonical_pmid_index_path: {tmp_path / "data/02_abstracts/filtered/canonical_species_pmids_sampled.parquet"}
   raw_article_records_path: {tmp_path / "data/02_abstracts/raw/pubmed_article_records.jsonl"}
   filtered_species_matches_path: {tmp_path / "data/02_abstracts/filtered/abstract_species_matches.parquet"}
   filtered_filter_matches_path: {tmp_path / "data/02_abstracts/filtered/abstract_filter_matches.parquet"}
@@ -128,8 +140,8 @@ def article_fixture() -> dict:
 
 def test_render_pubmed_query_with_placeholders() -> None:
     query = render_pubmed_query(
-        template='("{matched_name}"[{field}]) AND ({human_terms}) AND ({infection_terms})',
-        matched_name="Abiotrophia adiacens",
+        template='({matched_names}) AND ({human_terms}) AND ({infection_terms})',
+        matched_names=["Abiotrophia adiacens", "Granulicatella adiacens"],
         field="Title/Abstract",
         human_terms=["patient"],
         infection_terms=["infection"],
@@ -137,6 +149,8 @@ def test_render_pubmed_query_with_placeholders() -> None:
         max_year=2026,
     )
     assert '"Abiotrophia adiacens"[Title/Abstract]' in query
+    assert '"Granulicatella adiacens"[Title/Abstract]' in query
+    assert '"Abiotrophia adiacens"[Title/Abstract] OR "Granulicatella adiacens"[Title/Abstract]' in query
     assert '"patient"[Title/Abstract]' in query
     assert stable_query_hash(query) == stable_query_hash(query)
 
@@ -149,13 +163,15 @@ def test_query_plan_generation_and_yaml_schema(tmp_path: Path) -> None:
     template_path = write_template_config(tmp_path, mapping_path)
 
     plan = build_pubmed_query_plan(template_path, filter_path)
-    assert len(plan["queries"]) == 2
+    assert len(plan["queries"]) == 1
     assert plan["approval"]["status"] == "draft"
     assert plan["queries"][0]["query_id"].startswith("q_")
+    assert plan["queries"][0]["canonical_species"] == "Granulicatella adiacens"
+    assert plan["queries"][0]["synonym_count"] == 2
 
     result = materialize_pubmed_query_plan(template_path, filter_path)
     assert Path(result["path"]).exists()
-    assert result["query_count"] == 2
+    assert result["query_count"] == 1
 
 
 def test_ncbi_config_loader_validates_email(tmp_path: Path) -> None:
@@ -197,6 +213,54 @@ def test_pubmed_client_mocked_search_and_fetch(monkeypatch: pytest.MonkeyPatch) 
     assert client.fetch_medline_records(["123"])[0]["PMID"] == "123"
 
 
+def test_pubmed_searches_skip_existing_query_results() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def search_pmids(self, query: str) -> list[str]:
+            self.calls.append(query)
+            return ["456"]
+
+    query_plan = {
+        "queries": [
+            {"query_id": "q_1", "query_hash": "1", "query": "already done"},
+            {"query_id": "q_2", "query_hash": "2", "query": "pending"},
+        ]
+    }
+    client = FakeClient()
+    results = run_pubmed_searches(
+        query_plan,
+        client,
+        existing_results=[{"query_id": "q_1", "query_hash": "1", "pmids": ["123"]}],
+        log=False,
+    )
+    assert client.calls == ["pending"]
+    assert {result["query_id"] for result in results} == {"q_1", "q_2"}
+
+
+def test_pubmed_fetches_skip_existing_pmids() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def fetch_medline_records(self, pmids: list[str]) -> list[dict]:
+            self.calls.append(pmids)
+            return [{"PMID": pmid, "TI": f"title {pmid}"} for pmid in pmids]
+
+    search_results = [{"query_id": "q_1", "sampled_pmids": ["123", "456", "789"]}]
+    client = FakeClient()
+    records = run_pubmed_fetches(
+        search_results,
+        client,
+        existing_records=[{"PMID": "123", "TI": "already fetched"}],
+        batch_size=2,
+        log=False,
+    )
+    assert client.calls == [["456", "789"]]
+    assert {record["PMID"] for record in records} == {"123", "456", "789"}
+
+
 def test_article_parser_species_matches_and_filter_matches() -> None:
     article = parse_pubmed_article_record(article_fixture())
     assert article["pmid"] == "123"
@@ -216,8 +280,9 @@ def test_article_parser_species_matches_and_filter_matches() -> None:
                 "query_hash": "1",
                 "template_id": "template",
                 "canonical_species": "Granulicatella adiacens",
-                "matched_name": "Abiotrophia adiacens",
-                "mapping_type": "synonym",
+                "matched_names": ["Abiotrophia adiacens", "Granulicatella adiacens"],
+                "mapping_types": ["accepted", "synonym"],
+                "synonym_count": 2,
                 "field": "Title/Abstract",
                 "query": "fixture",
             }
@@ -229,6 +294,42 @@ def test_article_parser_species_matches_and_filter_matches() -> None:
     )
     assert len(species_matches) == 1
     assert species_matches.loc[0, "canonical_species"] == "Granulicatella adiacens"
+    assert species_matches.loc[0, "synonym_count"] == 2
+
+
+def test_canonical_pmid_index_and_sampling() -> None:
+    query_plan = {
+        "queries": [
+            {
+                "query_id": "q_1",
+                "canonical_species": "Granulicatella adiacens",
+                "matched_names": ["Abiotrophia adiacens", "Granulicatella adiacens"],
+            },
+            {
+                "query_id": "q_2",
+                "canonical_species": "Granulicatella adiacens",
+                "matched_names": ["Abiotrophia adiacens", "Granulicatella adiacens"],
+            },
+        ]
+    }
+    index = build_canonical_pmid_index(
+        [
+            {"query_id": "q_1", "pmids": ["1", "2", "3"]},
+            {"query_id": "q_2", "pmids": ["3", "4"]},
+        ],
+        query_plan,
+    )
+    assert index.loc[0, "n_pmids"] == 4
+    sampled = sample_canonical_pmids(
+        index,
+        max_pmids_per_canonical_species=3,
+        oldest_pmids_per_canonical_species=2,
+        random_seed=42,
+    )
+    assert sampled.loc[0, "n_pmids"] == 3
+    assert sampled.loc[0, "n_pmids_available"] == 4
+    assert sampled.loc[0, "oldest_pmids"] == ["1", "2"]
+    assert not (set(sampled.loc[0, "oldest_pmids"]) & set(sampled.loc[0, "sampled_remaining_pmids"]))
 
 
 def test_phase2_release_exports_without_secrets(tmp_path: Path) -> None:
@@ -242,9 +343,14 @@ def test_phase2_release_exports_without_secrets(tmp_path: Path) -> None:
     metadata = write_phase2_outputs(plan, search_results, [article_fixture()], template_path, filter_path)
 
     release = tmp_path / "data/02_abstracts/release"
+    filtered = tmp_path / "data/02_abstracts/filtered"
     assert (release / "abstracts.parquet").exists()
     assert (release / "abstract_species_matches.parquet").exists()
     assert (release / "abstract_filter_matches.parquet").exists()
+    assert (filtered / "canonical_species_pmids.parquet").exists()
+    assert (filtered / "canonical_species_pmids_sampled.parquet").exists()
     assert metadata["record_counts"]["release_abstracts"] == 1
+    assert metadata["sampling"]["max_pmids_per_canonical_species"] == 2
+    assert metadata["sampling"]["oldest_pmids_per_canonical_species"] == 1
     assert metadata["ncbi"]["api_key_configured"] is None
     assert "test@example.org" not in str(metadata)

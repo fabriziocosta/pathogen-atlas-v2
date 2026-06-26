@@ -115,6 +115,10 @@ Word filters should be defined in `configs/abstract_filters.yaml`. The filtering
 
 Phase 2 is generated entirely from V2 Phase 1 release outputs. It does not import V1 data. PubMed query templates are tracked in `configs/pubmed_query_templates.yaml`; rendered query strings are written to `data/02_abstracts/query_plan/pubmed_query_plan.yaml` for inspection before acquisition. Approval metadata in the query plan is soft and inspectable, not an execution gate.
 
+Queries are rendered at canonical-species level. For each canonical species and configured PubMed field, all known accepted names and synonyms from Phase 1 are OR-ed together in a single exact-name expression. The pipeline first stores all PMIDs found for each canonical species, keeps the configured number of oldest PMIDs, then uniformly samples the remaining PMIDs without duplication until `max_pmids_per_canonical_species` is reached.
+
+The Phase 2 notebook workflow is split into four notebooks: query-plan inspection, PMID acquisition, abstract acquisition, and table statistics. PMID acquisition appends one completed query result at a time and resumes by skipping query IDs already saved. Abstract acquisition appends fetched MEDLINE records by batch and resumes by skipping PMIDs already present in the raw article records file.
+
 Live PubMed acquisition requires ignored local NCBI settings:
 
 ```text

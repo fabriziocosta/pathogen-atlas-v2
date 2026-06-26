@@ -41,6 +41,23 @@ def load_phase1_synonym_mapping(path: str | Path) -> pd.DataFrame:
     return mapping.drop_duplicates(subset=["input_name", "canonical_species", "mapping_type"])
 
 
+def canonical_species_synonym_groups(mapping: pd.DataFrame) -> list[dict[str, Any]]:
+    """Group Phase 1 input names into one synonym set per canonical species."""
+    groups: list[dict[str, Any]] = []
+    for canonical_species, group in mapping.groupby("canonical_species", sort=True):
+        names = sorted(set(str(name) for name in group["input_name"] if str(name).strip()), key=str.casefold)
+        mapping_types = sorted(set(str(kind) for kind in group["mapping_type"] if str(kind).strip()))
+        groups.append(
+            {
+                "canonical_species": canonical_species,
+                "matched_names": names,
+                "mapping_types": mapping_types,
+                "synonym_count": len(names),
+            }
+        )
+    return groups
+
+
 def build_pubmed_query_plan(
     template_config_path: str | Path = "configs/pubmed_query_templates.yaml",
     filter_config_path: str | Path = "configs/abstract_filters.yaml",
@@ -52,12 +69,12 @@ def build_pubmed_query_plan(
     mapping = load_phase1_synonym_mapping(source["species_synonym_mapping_path"])
 
     queries: list[dict[str, Any]] = []
-    for row in mapping.sort_values(["canonical_species", "input_name"]).itertuples(index=False):
+    for group in canonical_species_synonym_groups(mapping):
         for template in config["templates"]:
             for field in source["fields"]:
                 query = render_pubmed_query(
                     template=template["template"],
-                    matched_name=row.input_name,
+                    matched_names=group["matched_names"],
                     field=field,
                     human_terms=terms["human_context"],
                     infection_terms=terms["infection_context"],
@@ -70,9 +87,10 @@ def build_pubmed_query_plan(
                         "query_id": f"q_{query_hash}",
                         "query_hash": query_hash,
                         "template_id": template["id"],
-                        "canonical_species": row.canonical_species,
-                        "matched_name": row.input_name,
-                        "mapping_type": row.mapping_type,
+                        "canonical_species": group["canonical_species"],
+                        "matched_names": group["matched_names"],
+                        "mapping_types": group["mapping_types"],
+                        "synonym_count": group["synonym_count"],
                         "field": field,
                         "min_year": int(source["min_year"]),
                         "max_year": int(source["max_year"]),
@@ -92,6 +110,9 @@ def build_pubmed_query_plan(
             "min_year": int(source["min_year"]),
             "max_year": int(source["max_year"]),
             "fields": list(source["fields"]),
+            "max_pmids_per_canonical_species": int(source.get("max_pmids_per_canonical_species", 200)),
+            "oldest_pmids_per_canonical_species": int(source.get("oldest_pmids_per_canonical_species", 30)),
+            "pmid_sample_random_seed": int(source.get("pmid_sample_random_seed", 42)),
         },
         "approval": dict(config.get("query_plan", {}).get("approval", {})),
         "queries": queries,

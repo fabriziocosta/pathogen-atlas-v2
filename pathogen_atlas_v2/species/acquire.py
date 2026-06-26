@@ -148,32 +148,18 @@ class LpsnClientWrapper:
         time.sleep(self.wait_time_seconds)
         return result
 
-    def _retrieve_one(self) -> dict[str, Any] | None:
-        @retry(max_retries=self.max_retries)
-        def call() -> dict[str, Any] | None:
-            return next(self.client.retrieve(), None)
-
-        result = call()
-        time.sleep(self.wait_time_seconds)
-        return result
-
     def search_all(self, **kwargs: Any) -> list[dict[str, Any]]:
         """Return all paginated search results."""
-        records: list[dict[str, Any]] = []
-        page = 1
-        while True:
-            page_result = self._search(**{**kwargs, "page": page})
-            if isinstance(page_result, int):
-                if page_result == 0:
-                    break
-                retrieved = self._retrieve_one()
-                if retrieved:
-                    records.append(retrieved)
-                break
-            if not page_result:
-                break
-            records.extend(page_result)
-            page += 1
+        count = self._search(**kwargs)
+        if not count:
+            return []
+
+        @retry(max_retries=self.max_retries)
+        def call() -> list[dict[str, Any]]:
+            return [record for record in self.client.retrieve() if isinstance(record, dict)]
+
+        records = call()
+        time.sleep(self.wait_time_seconds)
         return records
 
     def get_entry_by_id(self, taxon_id: Any) -> dict[str, Any] | None:

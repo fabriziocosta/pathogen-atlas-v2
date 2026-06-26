@@ -45,9 +45,14 @@ def render_term_expression(terms: list[str], field: str) -> str:
     return " OR ".join(quote_pubmed_term(term, field) for term in terms)
 
 
+def render_name_expression(names: list[str], field: str) -> str:
+    """Render an OR expression for exact species/synonym names in a PubMed field."""
+    return " OR ".join(quote_pubmed_term(name, field) for name in names)
+
+
 def render_pubmed_query(
     template: str,
-    matched_name: str,
+    matched_names: list[str],
     field: str,
     human_terms: list[str],
     infection_terms: list[str],
@@ -57,7 +62,7 @@ def render_pubmed_query(
     """Render a PubMed query from a tracked template."""
     return " ".join(
         template.format(
-            matched_name=matched_name.replace('"', '\\"'),
+            matched_names=render_name_expression(matched_names, field),
             field=field,
             human_terms=render_term_expression(human_terms, field),
             infection_terms=render_term_expression(infection_terms, field),

@@ -73,19 +73,37 @@ class PubMedEntrezClient:
                 wait *= 2
 
     def search_pmids(self, query: str) -> list[str]:
-        """Search PubMed and return PMIDs for a query."""
+        """Search PubMed and return all PMIDs for a query."""
+        pmids: list[str] = []
+        retstart = 0
+        total_count: int | None = None
+        while total_count is None or retstart < total_count:
+            batch = self._search_pmid_batch(query, retstart=retstart)
+            total_count = batch["count"]
+            pmids.extend(batch["pmids"])
+            if not batch["pmids"] or len(batch["pmids"]) < self.retmax:
+                break
+            retstart += self.retmax
+        return list(dict.fromkeys(pmids))
+
+    def _search_pmid_batch(self, query: str, retstart: int) -> dict[str, Any]:
+        """Search one PubMed PMID page."""
         handle = self._with_retries(
             Entrez.esearch,
             db="pubmed",
             term=query,
             retmode="xml",
             retmax=self.retmax,
+            retstart=retstart,
         )
         try:
             record = Entrez.read(handle)
         finally:
             handle.close()
-        return [str(pmid) for pmid in record.get("IdList", [])]
+        return {
+            "count": int(record.get("Count", len(record.get("IdList", [])))),
+            "pmids": [str(pmid) for pmid in record.get("IdList", [])],
+        }
 
     def fetch_medline_records(self, pmids: Iterable[str]) -> list[dict[str, Any]]:
         """Fetch MEDLINE records for PMIDs."""

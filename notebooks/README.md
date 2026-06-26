@@ -7,10 +7,13 @@ Reusable logic belongs in `pathogen_atlas_v2/`.
 Notebook sequence:
 
 1. `01_species_synonyms.ipynb`
-2. `02_abstract_acquisition.ipynb`
-3. `03_llm_extraction_vectorisation.ipynb`
-4. `04_table_creation.ipynb`
-5. `05_plot_creation.ipynb`
+2. `02_1_pubmed_query_plan.ipynb`
+3. `02_2_pubmed_acquire_pmids.ipynb`
+4. `02_3_pubmed_acquire_abstracts.ipynb`
+5. `02_4_pubmed_table_stats.ipynb`
+6. `03_llm_extraction_vectorisation.ipynb`
+7. `04_table_creation.ipynb`
+8. `05_plot_creation.ipynb`
 
 Each notebook is a thin orchestration layer: set parameters, invoke the matching Python pipeline, and inspect outputs.
 

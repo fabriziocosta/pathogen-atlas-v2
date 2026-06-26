@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 from pathogen_atlas_v2.species.acquire import (
+    LpsnClientWrapper,
     SpeciesAcquisitionError,
     load_lpsn_credentials,
 )
@@ -131,6 +132,31 @@ def test_synonym_mapping_accepted_and_synonym_records() -> None:
     assert lookup.canonical_name("Granulicatella adiacens") == "Granulicatella adiacens"
     assert lookup.canonical_name("Abiotrophia adiacens") == "Granulicatella adiacens"
     assert "Abiotrophia adiacens" in lookup.synonyms_for("Granulicatella adiacens")
+
+
+def test_lpsn_search_all_retrieves_all_results_after_count() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.search_params = None
+
+        def search(self, **kwargs):
+            self.search_params = kwargs
+            return 2
+
+        def retrieve(self):
+            yield {"id": 1, "full_name": "One species"}
+            yield {"id": 2, "full_name": "Two species"}
+
+    wrapper = LpsnClientWrapper.__new__(LpsnClientWrapper)
+    wrapper.client = FakeClient()
+    wrapper.wait_time_seconds = 0
+    wrapper.max_retries = 0
+    wrapper._record_cache = {}
+
+    records = wrapper.search_all(taxon_name="", category="species")
+
+    assert len(records) == 2
+    assert wrapper.client.search_params == {"taxon_name": "", "category": "species"}
 
 
 def test_conflicting_mapping_detection() -> None:

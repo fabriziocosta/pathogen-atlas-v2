@@ -26,6 +26,18 @@ For runtime-only use:
 python -m pip install -e .
 ```
 
+V1 plotting code used `matplotlib`, `plotly`, `networkx`, and scikit-learn
+embedding/layout helpers. V2 includes `matplotlib` by default for notebook
+figures and exposes the broader plotting stack through:
+
+```bash
+python -m pip install -e ".[viz]"
+```
+
+`pygraphviz` is intentionally not installed by default because it requires a
+system Graphviz installation; add it locally only for Graphviz-backed network
+layouts.
+
 Phase 1 can be run with:
 
 ```bash
@@ -53,3 +65,8 @@ pathogen-atlas-phase2
 ```
 
 PubMed acquisition requires ignored local NCBI settings in `configs/local/ncbi_entrez.yaml`.
+Phase 2 renders one query per canonical species and PubMed field, OR-ing all
+known synonyms for that canonical species before collecting and sampling PMIDs.
+The notebook path is split into four steps: inspect queries, acquire all PMIDs,
+fetch selected abstracts, and inspect table stats. The PMID and abstract
+acquisition notebooks are resumable and skip work already written to disk.
