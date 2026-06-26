@@ -146,11 +146,16 @@ def write_release_outputs(
     return metadata
 
 
-def run_phase1(config_path: str | Path = "configs/species_sources.yaml", force_refresh: bool = False) -> dict[str, Any]:
+def run_phase1(
+    config_path: str | Path = "configs/species_sources.yaml",
+    force_refresh: bool = False,
+    resume: bool = True,
+    log: bool = True,
+) -> dict[str, Any]:
     """Run the complete Phase 1 species synonym rebuild."""
     config = load_species_source_config(config_path)
     retrieved_at = utc_now_iso()
-    records = acquire_lpsn_species_records(config=config, force_refresh=force_refresh)
+    records = acquire_lpsn_species_records(config=config, force_refresh=force_refresh, resume=resume, log=log)
     normalised_df = normalise_lpsn_records(records, source=config.name, retrieved_at=retrieved_at)
     return write_release_outputs(
         config=config,

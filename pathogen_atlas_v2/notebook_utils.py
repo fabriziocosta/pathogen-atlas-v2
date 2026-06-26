@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import json
 import textwrap
+from numbers import Number
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,7 @@ from pathogen_atlas_v2.abstracts.pubmed_query_templates import (
 )
 from pathogen_atlas_v2.common.io import load_yaml, resolve_path
 from pathogen_atlas_v2.species.acquire import SpeciesAcquisitionError
+from pathogen_atlas_v2.species.acquire import load_progress as load_phase1_progress_json
 from pathogen_atlas_v2.species.export_mappings import run_phase1
 
 
@@ -43,10 +45,14 @@ def phase_status(phase: int, name: str, implemented: bool) -> pd.DataFrame:
     )
 
 
-def run_phase_1(config_path: str = "configs/species_sources.yaml", force_refresh: bool = False) -> dict[str, Any]:
+def run_phase_1(
+    config_path: str = "configs/species_sources.yaml",
+    force_refresh: bool = False,
+    resume: bool = True,
+) -> dict[str, Any]:
     """Run Phase 1 and convert expected setup errors into notebook-friendly output."""
     try:
-        return run_phase1(config_path=config_path, force_refresh=force_refresh)
+        return run_phase1(config_path=config_path, force_refresh=force_refresh, resume=resume, log=True)
     except SpeciesAcquisitionError as exc:
         return {"status": "not_run", "reason": str(exc)}
 
@@ -209,12 +215,47 @@ def phase1_output_paths(config_path: str = "configs/species_sources.yaml") -> di
     source = next(item for item in config["sources"] if item["name"] == "lpsn")
     release = source["release"]
     return {
+        "candidate_records": resolve_path(source.get("candidate_records_path", "data/01_species/raw/lpsn_species_candidates.jsonl")),
+        "raw_records": resolve_path(source.get("raw_records_path", "data/01_species/raw/lpsn_species_records.jsonl")),
+        "lookup_cache": resolve_path(source.get("lookup_cache_path", "data/01_species/raw/lpsn_lookup_cache.jsonl")),
+        "progress": resolve_path(source.get("progress_path", "data/01_species/raw/lpsn_species_progress.json")),
         "normalised_records": resolve_path(source["normalised_records_path"]),
         "species_canonical": resolve_path(release["species_canonical_path"]),
         "species_synonym_mapping": resolve_path(release["species_synonym_mapping_path"]),
         "species_taxonomy": resolve_path(release["species_taxonomy_path"]),
         "metadata": resolve_path(release["metadata_path"]),
     }
+
+
+def phase1_progress_status(config_path: str = "configs/species_sources.yaml") -> pd.DataFrame:
+    """Return current Phase 1 live acquisition progress as a DataFrame."""
+    config = load_yaml(resolve_path(config_path))
+    source = next(item for item in config["sources"] if item["name"] == "lpsn")
+    progress_path = resolve_path(source.get("progress_path", "data/01_species/raw/lpsn_species_progress.json"))
+    progress = load_phase1_progress_json(progress_path)
+    total = progress.get("total_records")
+    completed = progress.get("completed_records")
+    retrieved = progress.get("retrieved_records") or progress.get("candidate_records")
+    remaining = progress.get("remaining_records")
+    percent = None
+    if isinstance(total, Number) and total:
+        percent = round((float(completed or 0) / float(total)) * 100, 2)
+    return pd.DataFrame(
+        [
+            {
+                "status": progress.get("status", "not_started"),
+                "mode": progress.get("mode"),
+                "retrieved_records": retrieved,
+                "completed_records": completed,
+                "total_records": total,
+                "remaining_records": remaining,
+                "percent_complete": percent,
+                "enrich_taxonomy_hierarchy": progress.get("enrich_taxonomy_hierarchy", source.get("enrich_taxonomy_hierarchy", False)),
+                "updated_at": progress.get("updated_at"),
+                "path": str(progress_path),
+            }
+        ]
+    )
 
 
 def phase2_output_paths(config_path: str = "configs/pubmed_query_templates.yaml") -> dict[str, Path]:

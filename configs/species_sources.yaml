@@ -5,7 +5,12 @@ sources:
     wait_time_seconds: 3
     max_retries: 5
     credentials_path: configs/local/lpsn_credentials.yaml
+    candidate_records_path: data/01_species/raw/lpsn_species_candidates.jsonl
     raw_records_path: data/01_species/raw/lpsn_species_records.jsonl
+    lookup_cache_path: data/01_species/raw/lpsn_lookup_cache.jsonl
+    progress_path: data/01_species/raw/lpsn_species_progress.json
+    progress_log_every: 100
+    enrich_taxonomy_hierarchy: false
     normalised_records_path: data/01_species/interim/lpsn_species_normalised.parquet
     release:
       species_canonical_path: data/01_species/release/species_canonical.parquet

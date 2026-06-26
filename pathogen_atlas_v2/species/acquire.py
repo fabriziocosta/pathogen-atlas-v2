@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
-from pathogen_atlas_v2.common.io import load_yaml, read_jsonl, resolve_path, write_jsonl
+from pathogen_atlas_v2.common.io import ensure_parent, load_yaml, read_jsonl, resolve_path, write_json, write_jsonl
 
 
 class SpeciesAcquisitionError(RuntimeError):
@@ -33,7 +33,12 @@ class LpsnSourceConfig:
     wait_time_seconds: float
     max_retries: int
     credentials_path: Path
+    candidate_records_path: Path
     raw_records_path: Path
+    lookup_cache_path: Path
+    progress_path: Path
+    progress_log_every: int
+    enrich_taxonomy_hierarchy: bool
     normalised_records_path: Path
     release: dict[str, Path]
     v1_reference: dict[str, Path]
@@ -86,13 +91,19 @@ def load_species_source_config(path: str | Path = "configs/species_sources.yaml"
         key: resolve_path(value)
         for key, value in source.get("v1_reference", {}).items()
     }
+    raw_records_path = resolve_path(source["raw_records_path"])
     return LpsnSourceConfig(
         name=source["name"],
         category=source.get("category", "species"),
         wait_time_seconds=float(source.get("wait_time_seconds", 3)),
         max_retries=int(source.get("max_retries", 5)),
         credentials_path=resolve_path(source["credentials_path"]),
-        raw_records_path=resolve_path(source["raw_records_path"]),
+        candidate_records_path=resolve_path(source["candidate_records_path"]) if source.get("candidate_records_path") else raw_records_path.with_name("lpsn_species_candidates.jsonl"),
+        raw_records_path=raw_records_path,
+        lookup_cache_path=resolve_path(source["lookup_cache_path"]) if source.get("lookup_cache_path") else raw_records_path.with_name("lpsn_lookup_cache.jsonl"),
+        progress_path=resolve_path(source["progress_path"]) if source.get("progress_path") else raw_records_path.with_name("lpsn_species_progress.json"),
+        progress_log_every=int(source.get("progress_log_every", 100)),
+        enrich_taxonomy_hierarchy=bool(source.get("enrich_taxonomy_hierarchy", False)),
         normalised_records_path=resolve_path(source["normalised_records_path"]),
         release=release,
         v1_reference=v1_reference,
@@ -127,7 +138,13 @@ def load_lpsn_credentials(path: str | Path) -> LpsnCredentials:
 class LpsnClientWrapper:
     """Small LPSN API wrapper with pagination, retry, and parent-record caching."""
 
-    def __init__(self, credentials: LpsnCredentials, wait_time_seconds: float = 3, max_retries: int = 5):
+    def __init__(
+        self,
+        credentials: LpsnCredentials,
+        wait_time_seconds: float = 3,
+        max_retries: int = 5,
+        lookup_cache_path: str | Path | None = None,
+    ):
         try:
             import lpsn
         except ImportError as exc:
@@ -137,7 +154,12 @@ class LpsnClientWrapper:
         self.client = lpsn.LpsnClient(credentials.username, credentials.password)
         self.wait_time_seconds = wait_time_seconds
         self.max_retries = max_retries
-        self._record_cache: dict[Any, dict[str, Any]] = {}
+        self.lookup_cache_path = Path(lookup_cache_path) if lookup_cache_path else None
+        self._record_cache: dict[str, dict[str, Any]] = {}
+        if self.lookup_cache_path and self.lookup_cache_path.exists():
+            for record in read_jsonl(self.lookup_cache_path):
+                cache_id = record.get("_pathogen_atlas_cache_id") or record_identity(record)
+                self._record_cache[str(cache_id)] = record
 
     def _search(self, **kwargs: Any) -> Any:
         @retry(max_retries=self.max_retries)
@@ -148,31 +170,37 @@ class LpsnClientWrapper:
         time.sleep(self.wait_time_seconds)
         return result
 
+    def search_count(self, **kwargs: Any) -> int:
+        """Run an LPSN search and return the result count."""
+        return int(self._search(**kwargs) or 0)
+
+    def iter_search_results(self, **kwargs: Any) -> Iterable[dict[str, Any]]:
+        """Yield all records for an LPSN search."""
+        count = self.search_count(**kwargs)
+        if not count:
+            return
+        yield from (record for record in self.client.retrieve() if isinstance(record, dict))
+        time.sleep(self.wait_time_seconds)
+
     def search_all(self, **kwargs: Any) -> list[dict[str, Any]]:
         """Return all paginated search results."""
-        count = self._search(**kwargs)
-        if not count:
-            return []
-
-        @retry(max_retries=self.max_retries)
-        def call() -> list[dict[str, Any]]:
-            return [record for record in self.client.retrieve() if isinstance(record, dict)]
-
-        records = call()
-        time.sleep(self.wait_time_seconds)
-        return records
+        return list(self.iter_search_results(**kwargs))
 
     def get_entry_by_id(self, taxon_id: Any) -> dict[str, Any] | None:
         """Retrieve a single LPSN record by ID, using an in-memory cache."""
         if not taxon_id:
             return None
-        if taxon_id in self._record_cache:
-            return self._record_cache[taxon_id]
+        cache_id = str(taxon_id)
+        if cache_id in self._record_cache:
+            return self._record_cache[cache_id]
         results = self.search_all(id=taxon_id)
         if not results:
             return None
         record = results[0]
-        self._record_cache[taxon_id] = record
+        cache_record = {**record, "_pathogen_atlas_cache_id": cache_id}
+        self._record_cache[cache_id] = cache_record
+        if self.lookup_cache_path:
+            append_jsonl(self.lookup_cache_path, cache_record)
         return record
 
     def reconstruct_hierarchy(self, record: dict[str, Any]) -> list[dict[str, Any]]:
@@ -192,35 +220,214 @@ class LpsnClientWrapper:
             current = self.get_entry_by_id(parent_id)
         return hierarchy
 
-    def enrich_record(self, record: dict[str, Any]) -> dict[str, Any]:
+    def enrich_record(self, record: dict[str, Any], enrich_taxonomy_hierarchy: bool = False) -> dict[str, Any]:
         """Attach hierarchy and accepted-record details needed by normalisation."""
         enriched = dict(record)
-        enriched["_pathogen_atlas_hierarchy"] = self.reconstruct_hierarchy(record)
+        if enrich_taxonomy_hierarchy:
+            enriched["_pathogen_atlas_hierarchy"] = self.reconstruct_hierarchy(record)
         status = str(record.get("lpsn_taxonomic_status", "")).lower()
         correct_id = record.get("lpsn_correct_name_id")
         if "synonym" in status and correct_id:
             accepted = self.get_entry_by_id(correct_id)
             if accepted:
                 enriched["_pathogen_atlas_accepted_record"] = accepted
-                enriched["_pathogen_atlas_accepted_hierarchy"] = self.reconstruct_hierarchy(accepted)
+                if enrich_taxonomy_hierarchy:
+                    enriched["_pathogen_atlas_accepted_hierarchy"] = self.reconstruct_hierarchy(accepted)
         return enriched
 
 
-def acquire_lpsn_species_records(config: LpsnSourceConfig, force_refresh: bool = False) -> list[dict[str, Any]]:
-    """Acquire LPSN species records, using the raw JSONL cache unless refreshed."""
+def record_identity(record: dict[str, Any]) -> str:
+    """Return a stable identity for resume bookkeeping."""
+    for key in ("id", "record_no", "lpsn_taxon_id", "lpsn_id"):
+        if record.get(key) not in (None, ""):
+            return str(record[key])
+    for key in ("full_name", "taxon_name", "name"):
+        if record.get(key):
+            return str(record[key])
+    return str(hash(str(sorted(record.items()))))
+
+
+def append_jsonl(path: str | Path, record: dict[str, Any]) -> None:
+    """Append a single JSONL record."""
+    import json
+
+    path = ensure_parent(path)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, sort_keys=True))
+        handle.write("\n")
+
+
+def load_progress(path: str | Path) -> dict[str, Any]:
+    """Load Phase 1 progress if present."""
+    import json
+
+    path = Path(path)
+    if not path.exists():
+        return {"status": "not_started"}
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def write_progress(path: str | Path, **values: Any) -> dict[str, Any]:
+    """Write and return Phase 1 progress metadata."""
+    progress = {**load_progress(path), **values, "updated_at": utc_now_iso()}
+    write_json(path, progress)
+    return progress
+
+
+def log_progress(message: str, enabled: bool = True) -> None:
+    """Emit notebook-friendly progress logs."""
+    if enabled:
+        print(message, flush=True)
+
+
+def acquire_lpsn_species_records(
+    config: LpsnSourceConfig,
+    force_refresh: bool = False,
+    resume: bool = True,
+    log: bool = True,
+) -> list[dict[str, Any]]:
+    """Acquire LPSN species records, supporting live progress and resume."""
     if config.raw_records_path.exists() and not force_refresh:
-        return read_jsonl(config.raw_records_path)
+        progress = load_progress(config.progress_path)
+        if not resume or progress.get("status") not in {"retrieving", "enriching", "running"}:
+            log_progress(f"Phase 1 acquisition: using cached raw records at {config.raw_records_path}.", log)
+            return read_jsonl(config.raw_records_path)
+
+    if force_refresh:
+        for path in (config.candidate_records_path, config.raw_records_path, config.progress_path, config.lookup_cache_path):
+            if path.exists():
+                path.unlink()
 
     credentials = load_lpsn_credentials(config.credentials_path)
     client = LpsnClientWrapper(
         credentials=credentials,
         wait_time_seconds=config.wait_time_seconds,
         max_retries=config.max_retries,
+        lookup_cache_path=config.lookup_cache_path,
     )
-    records = client.search_all(taxon_name="", category=config.category)
-    enriched_records = [client.enrich_record(record) for record in records]
-    write_jsonl(config.raw_records_path, enriched_records)
-    return enriched_records
+    existing_records = read_jsonl(config.raw_records_path) if config.raw_records_path.exists() else []
+    completed_ids = {record_identity(record) for record in existing_records}
+    candidate_records = read_jsonl(config.candidate_records_path) if config.candidate_records_path.exists() else []
+    candidate_ids = {record_identity(record) for record in candidate_records}
+
+    progress = load_progress(config.progress_path)
+    total = int(progress["total_records"]) if progress.get("total_records") else 0
+    if not total or len(candidate_records) < total:
+        total = client.search_count(taxon_name="", category=config.category)
+    write_progress(
+        config.progress_path,
+        status="retrieving" if len(candidate_records) < total else "enriching",
+        mode="force_refresh" if force_refresh else "resume",
+        enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
+        total_records=total,
+        candidate_records=len(candidate_records),
+        retrieved_records=len(candidate_records),
+        completed_records=len(completed_ids),
+        remaining_records=max(total - len(completed_ids), 0),
+        candidate_records_path=str(config.candidate_records_path),
+        raw_records_path=str(config.raw_records_path),
+    )
+    log_progress(
+        f"Phase 1 acquisition: {len(candidate_records)}/{total} candidate records retrieved; "
+        f"{len(completed_ids)}/{total} records enriched.",
+        log,
+    )
+
+    if len(candidate_records) < total:
+        retrieved_seen = len(candidate_records)
+        for record in client.client.retrieve():
+            if not isinstance(record, dict):
+                continue
+            record_id = record_identity(record)
+            if record_id in candidate_ids:
+                continue
+            append_jsonl(config.candidate_records_path, record)
+            candidate_records.append(record)
+            candidate_ids.add(record_id)
+            retrieved_seen += 1
+            if retrieved_seen == 1 or retrieved_seen % config.progress_log_every == 0 or retrieved_seen >= total:
+                write_progress(
+                    config.progress_path,
+                    status="retrieving",
+                    mode="force_refresh" if force_refresh else "resume",
+                    enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
+                    total_records=total,
+                    candidate_records=len(candidate_records),
+                    retrieved_records=len(candidate_records),
+                    completed_records=len(completed_ids),
+                    remaining_records=max(total - len(completed_ids), 0),
+                    candidate_records_path=str(config.candidate_records_path),
+                    raw_records_path=str(config.raw_records_path),
+                )
+                log_progress(
+                    f"Phase 1 retrieval: {len(candidate_records)}/{total} candidate records saved.",
+                    log,
+                )
+        if len(candidate_records) < total:
+            log_progress(
+                f"Phase 1 retrieval stopped with {len(candidate_records)}/{total} candidate records saved. "
+                "Rerun with RESUME=True to continue.",
+                log,
+            )
+
+    write_progress(
+        config.progress_path,
+        status="enriching",
+        mode="force_refresh" if force_refresh else "resume",
+        enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
+        total_records=total,
+        candidate_records=len(candidate_records),
+        retrieved_records=len(candidate_records),
+        completed_records=len(completed_ids),
+        remaining_records=max(total - len(completed_ids), 0),
+        candidate_records_path=str(config.candidate_records_path),
+        raw_records_path=str(config.raw_records_path),
+    )
+
+    for record in candidate_records:
+        record_id = record_identity(record)
+        if record_id in completed_ids:
+            continue
+        enriched = client.enrich_record(record, enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy)
+        append_jsonl(config.raw_records_path, enriched)
+        existing_records.append(enriched)
+        completed_ids.add(record_id)
+        if len(completed_ids) == 1 or len(completed_ids) % config.progress_log_every == 0 or len(completed_ids) >= total:
+            write_progress(
+                config.progress_path,
+                status="enriching",
+                mode="force_refresh" if force_refresh else "resume",
+                enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
+                total_records=total,
+                candidate_records=len(candidate_records),
+                retrieved_records=len(candidate_records),
+                completed_records=len(completed_ids),
+                remaining_records=max(total - len(completed_ids), 0),
+                candidate_records_path=str(config.candidate_records_path),
+                raw_records_path=str(config.raw_records_path),
+            )
+            log_progress(
+                f"Phase 1 enrichment: {len(completed_ids)}/{total} records saved; "
+                f"{max(total - len(completed_ids), 0)} remaining.",
+                log,
+            )
+
+    write_progress(
+        config.progress_path,
+        status="completed",
+        mode="force_refresh" if force_refresh else "resume",
+        enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
+        total_records=total,
+        candidate_records=len(candidate_records),
+        retrieved_records=len(candidate_records),
+        completed_records=len(completed_ids),
+        remaining_records=0,
+        candidate_records_path=str(config.candidate_records_path),
+        raw_records_path=str(config.raw_records_path),
+    )
+    log_progress(f"Phase 1 acquisition: completed {len(completed_ids)}/{total} records.", log)
+    return existing_records
 
 
 def main() -> None:

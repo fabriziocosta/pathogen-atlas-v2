@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from pathlib import Path
 
 import pandas as pd
@@ -10,6 +12,10 @@ import pytest
 
 from pathogen_atlas_v2.species.acquire import (
     LpsnClientWrapper,
+    LpsnCredentials,
+    acquire_lpsn_species_records,
+    load_species_source_config,
+    write_progress,
     SpeciesAcquisitionError,
     load_lpsn_credentials,
 )
@@ -103,6 +109,11 @@ sources:
     return config_path
 
 
+def write_lpsn_credentials(path: Path) -> None:
+    """Write local fake credentials."""
+    path.write_text("lpsn:\n  username: user\n  password: pass\n", encoding="utf-8")
+
+
 def test_credential_loader_valid_missing_and_malformed(tmp_path: Path) -> None:
     valid = tmp_path / "lpsn_credentials.yaml"
     valid.write_text("lpsn:\n  username: user\n  password: pass\n", encoding="utf-8")
@@ -157,6 +168,134 @@ def test_lpsn_search_all_retrieves_all_results_after_count() -> None:
 
     assert len(records) == 2
     assert wrapper.client.search_params == {"taxon_name": "", "category": "species"}
+
+
+def test_lpsn_id_lookup_uses_persistent_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cache_path = tmp_path / "lpsn_lookup_cache.jsonl"
+    calls = {"search": 0}
+
+    class FakeClient:
+        def __init__(self, username: str, password: str) -> None:
+            pass
+
+        def search(self, **kwargs):
+            calls["search"] += 1
+            if calls["search"] > 1:
+                raise AssertionError("cache was not used")
+            self.result = {"results": [kwargs["id"]], "next": None}
+            return 1
+
+        def retrieve(self):
+            yield {"id": 101, "full_name": "Cached species", "category": "species"}
+
+    monkeypatch.setitem(sys.modules, "lpsn", types.SimpleNamespace(LpsnClient=FakeClient))
+
+    first = LpsnClientWrapper(
+        LpsnCredentials(username="user", password="pass"),
+        wait_time_seconds=0,
+        max_retries=0,
+        lookup_cache_path=cache_path,
+    )
+    assert first.get_entry_by_id(101)["full_name"] == "Cached species"
+
+    second = LpsnClientWrapper(
+        LpsnCredentials(username="user", password="pass"),
+        wait_time_seconds=0,
+        max_retries=0,
+        lookup_cache_path=cache_path,
+    )
+    assert second.get_entry_by_id(101)["full_name"] == "Cached species"
+    assert calls["search"] == 1
+
+
+def test_enrich_record_can_skip_taxonomy_hierarchy() -> None:
+    wrapper = LpsnClientWrapper.__new__(LpsnClientWrapper)
+    wrapper.get_entry_by_id = lambda taxon_id: {"id": taxon_id, "full_name": "Accepted species"}
+    wrapper.reconstruct_hierarchy = lambda record: [{"category": "domain", "full_name": "Bacteria"}]
+    synonym = {
+        "id": 102,
+        "full_name": "Synonym species",
+        "category": "species",
+        "lpsn_taxonomic_status": "synonym",
+        "lpsn_correct_name_id": 101,
+    }
+
+    fast = wrapper.enrich_record(synonym, enrich_taxonomy_hierarchy=False)
+    full = wrapper.enrich_record(synonym, enrich_taxonomy_hierarchy=True)
+
+    assert "_pathogen_atlas_accepted_record" in fast
+    assert "_pathogen_atlas_hierarchy" not in fast
+    assert "_pathogen_atlas_accepted_hierarchy" not in fast
+    assert "_pathogen_atlas_hierarchy" in full
+    assert "_pathogen_atlas_accepted_hierarchy" in full
+
+
+def test_phase1_resume_uses_saved_candidate_records(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    raw_path = tmp_path / "data/01_species/raw/lpsn_species_records.jsonl"
+    candidate_path = tmp_path / "data/01_species/raw/lpsn_species_candidates.jsonl"
+    progress_path = tmp_path / "data/01_species/raw/lpsn_species_progress.json"
+    credentials_path = tmp_path / "lpsn_credentials.yaml"
+    v1_path = tmp_path / "v1_species_to_canonical.csv"
+    write_lpsn_credentials(credentials_path)
+    write_jsonl(candidate_path, [{"id": 1, "full_name": "One species", "category": "species"}])
+    write_progress(
+        progress_path,
+        status="enriching",
+        total_records=1,
+        candidate_records=1,
+        retrieved_records=1,
+        completed_records=0,
+        remaining_records=1,
+    )
+    pd.DataFrame([{"Species": "One species", "CanonicalSpecies": "One species"}]).to_csv(v1_path, index=False)
+    config_path = tmp_path / "species_sources.yaml"
+    config_path.write_text(
+        f"""
+sources:
+  - name: lpsn
+    category: species
+    wait_time_seconds: 0
+    max_retries: 0
+    credentials_path: {credentials_path}
+    candidate_records_path: {candidate_path}
+    raw_records_path: {raw_path}
+    lookup_cache_path: {tmp_path / "data/01_species/raw/lpsn_lookup_cache.jsonl"}
+    progress_path: {progress_path}
+    progress_log_every: 1
+    enrich_taxonomy_hierarchy: false
+    normalised_records_path: {tmp_path / "data/01_species/interim/lpsn_species_normalised.parquet"}
+    release:
+      species_canonical_path: {tmp_path / "data/01_species/release/species_canonical.parquet"}
+      species_synonym_mapping_path: {tmp_path / "data/01_species/release/species_synonym_mapping.parquet"}
+      species_taxonomy_path: {tmp_path / "data/01_species/release/species_taxonomy.parquet"}
+      metadata_path: {tmp_path / "data/01_species/release/species_mapping_metadata.json"}
+    v1_reference:
+      species_to_canonical_path: {v1_path}
+""",
+        encoding="utf-8",
+    )
+    calls = {"search": 0, "retrieve": 0}
+
+    class FakeClient:
+        def __init__(self, username: str, password: str) -> None:
+            pass
+
+        def search(self, **kwargs):
+            calls["search"] += 1
+            return 1
+
+        def retrieve(self):
+            calls["retrieve"] += 1
+            raise AssertionError("retrieval should be skipped when candidates are complete")
+
+    monkeypatch.setitem(sys.modules, "lpsn", types.SimpleNamespace(LpsnClient=FakeClient))
+
+    config = load_species_source_config(config_path)
+    records = acquire_lpsn_species_records(config, resume=True, log=False)
+
+    assert len(records) == 1
+    assert raw_path.exists()
+    assert calls == {"search": 0, "retrieve": 0}
 
 
 def test_conflicting_mapping_detection() -> None:
