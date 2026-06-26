@@ -1,0 +1,8 @@
+# Default runtime configuration for Pathogen Atlas V2.
+project:
+  name: pathogen_atlas_v2
+  version: 0.0.0
+
+paths:
+  data_dir: data
+  release_dir: data/04_tables/release

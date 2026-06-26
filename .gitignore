@@ -1,0 +1,56 @@
+# macOS / editor / sync metadata
+.DS_Store
+._*
+*.swp
+*.swo
+*.tmp
+*.bak
+*.rsls
+.~*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and local secrets
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Generated data: keep directory placeholders and README files only
+data/**/*.csv
+data/**/*.tsv
+data/**/*.txt
+data/**/*.json
+data/**/*.jsonl
+data/**/*.parquet
+data/**/*.feather
+data/**/*.xlsx
+data/**/*.pkl
+data/**/*.zip
+data/**/*.tar
+data/**/*.tar.gz
+data/**/*.pdf
+data/**/*.html
+data/**/*.svg
+!data/**/README.md
+!data/**/.gitkeep
+
+# Generated reports and plot artifacts
+reports/
+*.pdf
+
+# Local scratch outputs
+archive/scratch/*
+!archive/scratch/README.md
