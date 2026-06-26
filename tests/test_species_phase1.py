@@ -230,7 +230,11 @@ def test_enrich_record_can_skip_taxonomy_hierarchy() -> None:
     assert "_pathogen_atlas_accepted_hierarchy" in full
 
 
-def test_phase1_resume_uses_saved_candidate_records(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_phase1_resume_uses_saved_candidate_records(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     raw_path = tmp_path / "data/01_species/raw/lpsn_species_records.jsonl"
     candidate_path = tmp_path / "data/01_species/raw/lpsn_species_candidates.jsonl"
     progress_path = tmp_path / "data/01_species/raw/lpsn_species_progress.json"
@@ -240,7 +244,7 @@ def test_phase1_resume_uses_saved_candidate_records(tmp_path: Path, monkeypatch:
     write_jsonl(candidate_path, [{"id": 1, "full_name": "One species", "category": "species"}])
     write_progress(
         progress_path,
-        status="enriching",
+        status="resolving_synonyms",
         total_records=1,
         candidate_records=1,
         retrieved_records=1,
@@ -291,11 +295,14 @@ sources:
     monkeypatch.setitem(sys.modules, "lpsn", types.SimpleNamespace(LpsnClient=FakeClient))
 
     config = load_species_source_config(config_path)
-    records = acquire_lpsn_species_records(config, resume=True, log=False)
+    records = acquire_lpsn_species_records(config, resume=True, log=True)
+    captured = capsys.readouterr()
 
     assert len(records) == 1
     assert raw_path.exists()
     assert calls == {"search": 0, "retrieve": 0}
+    assert "records resolved" in captured.out
+    assert "records enriched" not in captured.out
 
 
 def test_conflicting_mapping_detection() -> None:

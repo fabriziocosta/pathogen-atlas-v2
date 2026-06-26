@@ -290,7 +290,7 @@ def acquire_lpsn_species_records(
     """Acquire LPSN species records, supporting live progress and resume."""
     if config.raw_records_path.exists() and not force_refresh:
         progress = load_progress(config.progress_path)
-        if not resume or progress.get("status") not in {"retrieving", "enriching", "running"}:
+        if not resume or progress.get("status") not in {"retrieving", "resolving_synonyms", "enriching", "running"}:
             log_progress(f"Phase 1 acquisition: using cached raw records at {config.raw_records_path}.", log)
             return read_jsonl(config.raw_records_path)
 
@@ -317,7 +317,7 @@ def acquire_lpsn_species_records(
         total = client.search_count(taxon_name="", category=config.category)
     write_progress(
         config.progress_path,
-        status="retrieving" if len(candidate_records) < total else "enriching",
+        status="retrieving" if len(candidate_records) < total else "resolving_synonyms",
         mode="force_refresh" if force_refresh else "resume",
         enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
         total_records=total,
@@ -330,7 +330,7 @@ def acquire_lpsn_species_records(
     )
     log_progress(
         f"Phase 1 acquisition: {len(candidate_records)}/{total} candidate records retrieved; "
-        f"{len(completed_ids)}/{total} records enriched.",
+        f"{len(completed_ids)}/{total} records resolved.",
         log,
     )
 
@@ -373,7 +373,7 @@ def acquire_lpsn_species_records(
 
     write_progress(
         config.progress_path,
-        status="enriching",
+        status="resolving_synonyms",
         mode="force_refresh" if force_refresh else "resume",
         enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
         total_records=total,
@@ -396,7 +396,7 @@ def acquire_lpsn_species_records(
         if len(completed_ids) == 1 or len(completed_ids) % config.progress_log_every == 0 or len(completed_ids) >= total:
             write_progress(
                 config.progress_path,
-                status="enriching",
+                status="resolving_synonyms",
                 mode="force_refresh" if force_refresh else "resume",
                 enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
                 total_records=total,
@@ -408,7 +408,7 @@ def acquire_lpsn_species_records(
                 raw_records_path=str(config.raw_records_path),
             )
             log_progress(
-                f"Phase 1 enrichment: {len(completed_ids)}/{total} records saved; "
+                f"Phase 1 synonym resolution: {len(completed_ids)}/{total} records saved; "
                 f"{max(total - len(completed_ids), 0)} remaining.",
                 log,
             )
