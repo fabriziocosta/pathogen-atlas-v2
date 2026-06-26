@@ -17,6 +17,7 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+*.egg-info/
 
 # Virtual environments and local secrets
 .venv/
@@ -24,6 +25,8 @@ venv/
 env/
 .env
 .env.*
+configs/local/*.yaml
+configs/local/*.yml
 
 # Jupyter
 .ipynb_checkpoints/

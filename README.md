@@ -11,3 +11,31 @@ The project is organised around five phases:
 5. Plot creation.
 
 See [docs/organization.md](docs/organization.md) for the detailed structure and responsibilities.
+
+## Setup
+
+Install the package and all notebook/test dependencies from the repository root:
+
+```bash
+python -m pip install -e ".[all]"
+```
+
+For runtime-only use:
+
+```bash
+python -m pip install -e .
+```
+
+Phase 1 can be run with:
+
+```bash
+python pathogen_atlas_v2/pipelines/01_build_species_synonyms.py
+```
+
+or, after installation:
+
+```bash
+pathogen-atlas-phase1
+```
+
+Live LPSN acquisition requires ignored local credentials in `configs/local/lpsn_credentials.yaml`.

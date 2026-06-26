@@ -60,6 +60,28 @@ data/01_species/release/
 
 The main rule for this phase is that downstream phases should consume the release parquet files rather than repeating synonym logic. This gives the project a single taxonomic source of truth.
 
+Phase 1 is implemented as a live LPSN rebuild. It uses V1 mapping files only for diagnostic comparison and never treats them as authoritative inputs. Local LPSN credentials must be stored in ignored config:
+
+```text
+configs/local/lpsn_credentials.yaml
+```
+
+with this shape:
+
+```yaml
+lpsn:
+  username: "..."
+  password: "..."
+```
+
+Run the phase from the repository root with:
+
+```bash
+python pathogen_atlas_v2/pipelines/01_build_species_synonyms.py
+```
+
+If `data/01_species/raw/lpsn_species_records.jsonl` already exists, the pipeline uses that cache and does not require credentials or network access. Delete the raw cache or call the Python API with `force_refresh=True` to reacquire from LPSN.
+
 ## Phase 2: Abstract Acquisition
 
 Purpose: acquire abstracts using species mappings and configurable word filters. This phase should preserve raw records, record filter matches, deduplicate abstracts, and produce a clean abstract corpus.

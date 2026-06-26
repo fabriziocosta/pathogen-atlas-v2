@@ -1,2 +1,19 @@
-# Placeholder for species source definitions.
-sources: []
+# Phase 1 species source configuration.
+sources:
+  - name: lpsn
+    category: species
+    wait_time_seconds: 3
+    max_retries: 5
+    credentials_path: configs/local/lpsn_credentials.yaml
+    raw_records_path: data/01_species/raw/lpsn_species_records.jsonl
+    normalised_records_path: data/01_species/interim/lpsn_species_normalised.parquet
+    release:
+      species_canonical_path: data/01_species/release/species_canonical.parquet
+      species_synonym_mapping_path: data/01_species/release/species_synonym_mapping.parquet
+      species_taxonomy_path: data/01_species/release/species_taxonomy.parquet
+      metadata_path: data/01_species/release/species_mapping_metadata.json
+    v1_reference:
+      species_to_canonical_path: ../version1/species_to_canonical_species_mapping.csv
+      bacteria_synonym_lookup_path: ../version1/bacteria_synonym_lookup.csv
+      pathogen_atlas_species_path: ../version1/pathogen_atlas_species.csv
+      taxonomy_path: ../version1/taxonomy.csv

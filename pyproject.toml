@@ -1,8 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "pathogen-atlas-v2"
 version = "0.0.0"
 description = "Pathogen Atlas V2 data acquisition and analysis pipeline"
+readme = "README.md"
 requires-python = ">=3.10"
+dependencies = [
+    "lpsn==1.0.0",
+    "pandas>=2.0",
+    "pyarrow>=14.0",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+notebooks = [
+    "ipykernel>=6.0",
+    "ipython>=8.0",
+    "jupyterlab>=4.0",
+    "nbformat>=5.0",
+]
+dev = [
+    "nbformat>=5.0",
+    "pytest>=8.0",
+]
+all = [
+    "ipykernel>=6.0",
+    "ipython>=8.0",
+    "jupyterlab>=4.0",
+    "nbformat>=5.0",
+    "pytest>=8.0",
+]
+
+[project.scripts]
+pathogen-atlas-phase1 = "pathogen_atlas_v2.pipelines.phase1_species_synonyms:main"
+
+[tool.setuptools.packages.find]
+include = ["pathogen_atlas_v2*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
