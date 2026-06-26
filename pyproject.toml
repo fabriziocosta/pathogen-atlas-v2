@@ -9,10 +9,12 @@ description = "Pathogen Atlas V2 data acquisition and analysis pipeline"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "biopython>=1.83",
     "lpsn==1.0.0",
     "pandas>=2.0",
     "pyarrow>=14.0",
     "PyYAML>=6.0",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]
@@ -36,6 +38,7 @@ all = [
 
 [project.scripts]
 pathogen-atlas-phase1 = "pathogen_atlas_v2.pipelines.phase1_species_synonyms:main"
+pathogen-atlas-phase2 = "pathogen_atlas_v2.pipelines.phase2_pubmed_abstracts:main"
 
 [tool.setuptools.packages.find]
 include = ["pathogen_atlas_v2*"]

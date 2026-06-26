@@ -1,2 +1,80 @@
-# Placeholder for abstract acquisition word filters.
-filters: []
+# Phase 2 abstract filter terms.
+#
+# These terms are used both to render PubMed query strings and to record
+# post-retrieval filter matches for auditability.
+term_sets:
+  human_context:
+    - case
+    - cases
+    - clinical
+    - clinically
+    - human
+    - humans
+    - male
+    - males
+    - neonates
+    - neonate
+    - neonatal
+    - female
+    - females
+    - girl
+    - girls
+    - boy
+    - boys
+    - adolescent
+    - adolescents
+    - individual
+    - individuals
+    - baby
+    - babies
+    - elderly
+    - man
+    - men
+    - women
+    - woman
+    - infant
+    - infants
+    - patient
+    - patients
+    - child
+    - children
+    - adult
+    - adults
+  infection_context:
+    - pathogen
+    - pathogenic
+    - cause
+    - causation
+    - caused
+    - causative
+    - infected
+    - infection
+    - infections
+    - infectious
+    - infective
+    - disease
+    - morbidity
+    - mortality
+    - sepsis
+    - septic
+    - mycetoma
+    - septicaemia
+    - sinonasal
+    - diarrhoea
+    - bacteraemia
+    - bacteremia
+    - blood
+    - fever
+    - pus
+    - cystic
+    - purulent
+    - pyogenic
+    - abscess
+    - empyema
+    - pneumonia
+    - phlegmon
+    - erysipelas
+    - ulcer
+    - ecthyma
+    - dysentery
+    - systemic

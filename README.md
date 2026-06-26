@@ -39,3 +39,17 @@ pathogen-atlas-phase1
 ```
 
 Live LPSN acquisition requires ignored local credentials in `configs/local/lpsn_credentials.yaml`.
+
+Phase 2 can be run with:
+
+```bash
+python pathogen_atlas_v2/pipelines/02_acquire_abstracts.py
+```
+
+or, after installation:
+
+```bash
+pathogen-atlas-phase2
+```
+
+PubMed acquisition requires ignored local NCBI settings in `configs/local/ncbi_entrez.yaml`.

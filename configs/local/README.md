@@ -9,3 +9,12 @@ lpsn:
   username: "..."
   password: "..."
 ```
+
+Expected NCBI Entrez config:
+
+```yaml
+ncbi:
+  email: "name@example.org"
+  api_key: ""
+  tool: "pathogen-atlas-v2"
+```

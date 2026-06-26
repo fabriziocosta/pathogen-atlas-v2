@@ -1,0 +1,43 @@
+# Phase 2 PubMed query template configuration.
+#
+# Query plans are generated from this tracked template and Phase 1 release
+# species mappings. The generated query plan is written to
+# data/02_abstracts/query_plan/pubmed_query_plan.yaml for inspection.
+source:
+  name: pubmed
+  min_year: 1950
+  max_year: 2026
+  fields:
+    - Title/Abstract
+    - Keywords
+    - MeSH Terms
+  species_synonym_mapping_path: data/01_species/release/species_synonym_mapping.parquet
+  ncbi_config_path: configs/local/ncbi_entrez.yaml
+  rate_limit_without_api_key_per_second: 3
+  rate_limit_with_api_key_per_second: 10
+  request_delay_seconds: 0.34
+  max_retries: 5
+  retmax: 10000
+
+query_plan:
+  path: data/02_abstracts/query_plan/pubmed_query_plan.yaml
+  approval:
+    status: draft
+    reviewed_by: ""
+    reviewed_at: ""
+    notes: "Soft approval: acquisition can run before this is marked approved."
+
+templates:
+  - id: exact_species_human_infection_context
+    description: Exact species/synonym match constrained by human-context and infection-context terms.
+    template: '("{matched_name}"[{field}]) AND ({human_terms}) AND ({infection_terms}) AND ("{min_year}"[Date - Publication] : "{max_year}"[Date - Publication])'
+
+outputs:
+  raw_search_results_path: data/02_abstracts/raw/pubmed_search_results.jsonl
+  raw_article_records_path: data/02_abstracts/raw/pubmed_article_records.jsonl
+  filtered_species_matches_path: data/02_abstracts/filtered/abstract_species_matches.parquet
+  filtered_filter_matches_path: data/02_abstracts/filtered/abstract_filter_matches.parquet
+  release_abstracts_path: data/02_abstracts/release/abstracts.parquet
+  release_species_matches_path: data/02_abstracts/release/abstract_species_matches.parquet
+  release_filter_matches_path: data/02_abstracts/release/abstract_filter_matches.parquet
+  metadata_path: data/02_abstracts/release/abstract_acquisition_metadata.json

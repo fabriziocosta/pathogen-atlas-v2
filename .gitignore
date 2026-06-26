@@ -37,6 +37,8 @@ data/**/*.tsv
 data/**/*.txt
 data/**/*.json
 data/**/*.jsonl
+data/**/*.yaml
+data/**/*.yml
 data/**/*.parquet
 data/**/*.feather
 data/**/*.xlsx

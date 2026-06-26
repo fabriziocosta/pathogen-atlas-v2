@@ -113,6 +113,23 @@ data/02_abstracts/release/
 
 Word filters should be defined in `configs/abstract_filters.yaml`. The filtering code should record which terms matched each abstract so later analyses can be audited.
 
+Phase 2 is generated entirely from V2 Phase 1 release outputs. It does not import V1 data. PubMed query templates are tracked in `configs/pubmed_query_templates.yaml`; rendered query strings are written to `data/02_abstracts/query_plan/pubmed_query_plan.yaml` for inspection before acquisition. Approval metadata in the query plan is soft and inspectable, not an execution gate.
+
+Live PubMed acquisition requires ignored local NCBI settings:
+
+```text
+configs/local/ncbi_entrez.yaml
+```
+
+with this shape:
+
+```yaml
+ncbi:
+  email: "name@example.org"
+  api_key: ""
+  tool: "pathogen-atlas-v2"
+```
+
 ## Phase 3: LLM Extraction And Vectorisation
 
 Purpose: use LLMs to classify whether each species is a pathogen, answer structured microbiology questions, anonymise abstract text, and vectorise anonymised abstracts.
