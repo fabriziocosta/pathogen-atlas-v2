@@ -96,6 +96,7 @@ sources:
     release:
       species_canonical_path: {tmp_path / "data/01_species/release/species_canonical.parquet"}
       species_synonym_mapping_path: {tmp_path / "data/01_species/release/species_synonym_mapping.parquet"}
+      species_mapping_conflicts_path: {tmp_path / "data/01_species/release/species_mapping_conflicts.parquet"}
       species_taxonomy_path: {tmp_path / "data/01_species/release/species_taxonomy.parquet"}
       metadata_path: {tmp_path / "data/01_species/release/species_mapping_metadata.json"}
     v1_reference:
@@ -137,8 +138,9 @@ def test_name_normalisation_and_subspecies_parsing() -> None:
 
 def test_synonym_mapping_accepted_and_synonym_records() -> None:
     normalised = normalise_lpsn_records(fixture_records(), retrieved_at="2026-01-01T00:00:00+00:00")
-    mapping, diagnostics = build_synonym_mapping(normalised)
+    mapping, diagnostics, conflicts = build_synonym_mapping(normalised)
     assert diagnostics.duplicate_rows == 0
+    assert conflicts.empty
     lookup = SynonymLookup(mapping)
     assert lookup.canonical_name("Granulicatella adiacens") == "Granulicatella adiacens"
     assert lookup.canonical_name("Abiotrophia adiacens") == "Granulicatella adiacens"
@@ -328,6 +330,7 @@ sources:
     release:
       species_canonical_path: {tmp_path / "data/01_species/release/species_canonical.parquet"}
       species_synonym_mapping_path: {tmp_path / "data/01_species/release/species_synonym_mapping.parquet"}
+      species_mapping_conflicts_path: {tmp_path / "data/01_species/release/species_mapping_conflicts.parquet"}
       species_taxonomy_path: {tmp_path / "data/01_species/release/species_taxonomy.parquet"}
       metadata_path: {tmp_path / "data/01_species/release/species_mapping_metadata.json"}
     v1_reference:
@@ -367,10 +370,15 @@ def test_conflicting_mapping_detection() -> None:
         [
             {"input_name": "Bacillus testus", "canonical_species": "Bacillus testus", "mapping_type": "accepted", "input_lpsn_record_id": 1, "canonical_lpsn_record_id": 1, "status": "correct", "source": "fixture"},
             {"input_name": "Bacillus testus", "canonical_species": "Other testus", "mapping_type": "synonym", "input_lpsn_record_id": 2, "canonical_lpsn_record_id": 3, "status": "synonym", "source": "fixture"},
+            {"input_name": "Unambiguous testus", "canonical_species": "Unambiguous testus", "mapping_type": "accepted", "input_lpsn_record_id": 4, "canonical_lpsn_record_id": 4, "status": "correct", "source": "fixture"},
         ]
     )
-    with pytest.raises(ValueError, match="conflicting synonym mappings"):
-        build_synonym_mapping(mapping)
+    release_mapping, diagnostics, conflicts = build_synonym_mapping(mapping)
+
+    assert diagnostics.conflicting_input_names == 1
+    assert len(conflicts) == 2
+    assert set(conflicts["canonical_species"]) == {"Bacillus testus", "Other testus"}
+    assert release_mapping["input_name"].tolist() == ["Unambiguous testus"]
 
 
 def test_phase1_offline_pipeline_exports_expected_schema_and_v1_diagnostics(tmp_path: Path) -> None:
@@ -394,6 +402,7 @@ def test_phase1_offline_pipeline_exports_expected_schema_and_v1_diagnostics(tmp_
     release_dir = tmp_path / "data/01_species/release"
     canonical = pd.read_parquet(release_dir / "species_canonical.parquet")
     mapping = pd.read_parquet(release_dir / "species_synonym_mapping.parquet")
+    conflicts = pd.read_parquet(release_dir / "species_mapping_conflicts.parquet")
     taxonomy = pd.read_parquet(release_dir / "species_taxonomy.parquet")
 
     assert list(canonical.columns) == [
@@ -408,8 +417,10 @@ def test_phase1_offline_pipeline_exports_expected_schema_and_v1_diagnostics(tmp_
         "source_retrieved_at",
     ]
     assert mapping["canonical_species"].notna().all()
+    assert conflicts.empty
     assert "canonical_species" in taxonomy.columns
     assert metadata["record_counts"]["raw_records"] == 3
+    assert metadata["record_counts"]["mapping_conflict_rows"] == 0
     assert metadata["v1_comparison"]["available"] is True
     assert metadata["v1_comparison"]["v1_duplicate_rows"] == 1
     assert metadata["v1_comparison"]["v1_conflicting_species"] == 1

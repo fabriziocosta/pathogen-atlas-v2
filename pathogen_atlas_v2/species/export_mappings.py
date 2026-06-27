@@ -31,6 +31,15 @@ CANONICAL_COLUMNS = [
     "source_retrieved_at",
 ]
 TAXONOMY_COLUMNS = ["canonical_species", *RANK_COLUMNS, "genus", "source"]
+DEFAULT_CONFLICTS_FILENAME = "species_mapping_conflicts.parquet"
+
+
+def species_mapping_conflicts_path(config: LpsnSourceConfig) -> Path:
+    """Return the configured or default Phase 1 mapping conflict diagnostics path."""
+    configured = config.release.get("species_mapping_conflicts_path")
+    if configured:
+        return configured
+    return config.release["species_synonym_mapping_path"].with_name(DEFAULT_CONFLICTS_FILENAME)
 
 
 def build_species_canonical(normalised_df: pd.DataFrame) -> pd.DataFrame:
@@ -111,18 +120,21 @@ def write_release_outputs(
     retrieved_at: str,
 ) -> dict[str, Any]:
     """Write Phase 1 release parquet files and metadata JSON."""
-    mapping_df, mapping_diagnostics = build_synonym_mapping(normalised_df)
+    mapping_df, mapping_diagnostics, conflicts_df = build_synonym_mapping(normalised_df)
     canonical_df = build_species_canonical(normalised_df)
     taxonomy_df = build_species_taxonomy(normalised_df)
+    conflicts_path = species_mapping_conflicts_path(config)
 
     ensure_parent(config.normalised_records_path)
     normalised_df.to_parquet(config.normalised_records_path, index=False)
     ensure_parent(config.release["species_canonical_path"])
     ensure_parent(config.release["species_synonym_mapping_path"])
     ensure_parent(config.release["species_taxonomy_path"])
+    ensure_parent(conflicts_path)
     canonical_df.to_parquet(config.release["species_canonical_path"], index=False)
     mapping_df.to_parquet(config.release["species_synonym_mapping_path"], index=False)
     taxonomy_df.to_parquet(config.release["species_taxonomy_path"], index=False)
+    conflicts_df.to_parquet(conflicts_path, index=False)
 
     metadata: dict[str, Any] = {
         "source": config.name,
@@ -133,6 +145,7 @@ def write_release_outputs(
             "normalised_rows": int(len(normalised_df)),
             "canonical_species": int(len(canonical_df)),
             "synonym_mappings": int(len(mapping_df)),
+            "mapping_conflict_rows": int(len(conflicts_df)),
             "taxonomy_rows": int(len(taxonomy_df)),
         },
         "mapping_diagnostics": mapping_diagnostics.to_dict(),
@@ -140,6 +153,7 @@ def write_release_outputs(
         "outputs": {
             "normalised_records_path": str(config.normalised_records_path),
             **{key: str(path) for key, path in config.release.items()},
+            "species_mapping_conflicts_path": str(conflicts_path),
         },
     }
     write_json(config.release["metadata_path"], metadata)

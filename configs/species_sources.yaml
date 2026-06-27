@@ -15,6 +15,7 @@ sources:
     release:
       species_canonical_path: data/01_species/release/species_canonical.parquet
       species_synonym_mapping_path: data/01_species/release/species_synonym_mapping.parquet
+      species_mapping_conflicts_path: data/01_species/release/species_mapping_conflicts.parquet
       species_taxonomy_path: data/01_species/release/species_taxonomy.parquet
       metadata_path: data/01_species/release/species_mapping_metadata.json
     v1_reference:

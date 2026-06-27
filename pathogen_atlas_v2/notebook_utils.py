@@ -222,6 +222,12 @@ def phase1_output_paths(config_path: str = "configs/species_sources.yaml") -> di
         "normalised_records": resolve_path(source["normalised_records_path"]),
         "species_canonical": resolve_path(release["species_canonical_path"]),
         "species_synonym_mapping": resolve_path(release["species_synonym_mapping_path"]),
+        "species_mapping_conflicts": resolve_path(
+            release.get(
+                "species_mapping_conflicts_path",
+                str(resolve_path(release["species_synonym_mapping_path"]).with_name("species_mapping_conflicts.parquet")),
+            )
+        ),
         "species_taxonomy": resolve_path(release["species_taxonomy_path"]),
         "metadata": resolve_path(release["metadata_path"]),
     }

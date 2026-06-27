@@ -51,6 +51,9 @@ pathogen-atlas-phase1
 ```
 
 Live LPSN acquisition requires ignored local credentials in `configs/local/lpsn_credentials.yaml`.
+Phase 1 writes ambiguous synonym mappings to
+`data/01_species/release/species_mapping_conflicts.parquet` instead of failing
+the release export after a long acquisition run.
 
 Phase 2 can be run with:
 

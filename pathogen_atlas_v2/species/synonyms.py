@@ -18,6 +18,7 @@ SYNONYM_MAPPING_COLUMNS = [
     "status",
     "source",
 ]
+SYNONYM_CONFLICT_COLUMNS = [*SYNONYM_MAPPING_COLUMNS, "input_key", "conflicting_canonical_species_count"]
 
 
 @dataclass(frozen=True)
@@ -51,26 +52,52 @@ def detect_mapping_diagnostics(mapping_df: pd.DataFrame) -> MappingDiagnostics:
     )
 
 
-def build_synonym_mapping(normalised_df: pd.DataFrame) -> tuple[pd.DataFrame, MappingDiagnostics]:
-    """Build a stable input-name to canonical-species mapping."""
+def split_conflicting_mappings(mapping_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split unambiguous release mappings from conflicting diagnostic mappings."""
+    if mapping_df.empty:
+        return mapping_df.copy(), pd.DataFrame(columns=SYNONYM_CONFLICT_COLUMNS)
+
+    work = mapping_df.copy()
+    work["input_key"] = work["input_name"].map(normalized_key)
+    canonical_counts = work.groupby("input_key")["canonical_species"].nunique(dropna=True)
+    conflicting_keys = set(canonical_counts[canonical_counts > 1].index)
+    if not conflicting_keys:
+        return mapping_df.copy(), pd.DataFrame(columns=SYNONYM_CONFLICT_COLUMNS)
+
+    conflicts_df = work[work["input_key"].isin(conflicting_keys)].copy()
+    conflicts_df["conflicting_canonical_species_count"] = conflicts_df["input_key"].map(canonical_counts).astype("int64")
+    conflicts_df = conflicts_df[SYNONYM_CONFLICT_COLUMNS].sort_values(
+        ["input_key", "canonical_species", "input_name"]
+    ).reset_index(drop=True)
+
+    release_df = mapping_df[~work["input_key"].isin(conflicting_keys)].copy().reset_index(drop=True)
+    return release_df, conflicts_df
+
+
+def build_synonym_mapping(normalised_df: pd.DataFrame) -> tuple[pd.DataFrame, MappingDiagnostics, pd.DataFrame]:
+    """Build a stable input-name to canonical-species mapping plus diagnostics.
+
+    The release mapping excludes ambiguous input names and rows without a canonical
+    species. Excluded ambiguous rows are returned as a diagnostics table.
+    """
     missing = [column for column in SYNONYM_MAPPING_COLUMNS if column not in normalised_df.columns]
     if missing:
         raise ValueError(f"Normalised species records are missing required columns: {missing}")
     mapping_df = normalised_df[SYNONYM_MAPPING_COLUMNS].copy()
     mapping_df = mapping_df.drop_duplicates().sort_values(["input_name", "canonical_species"]).reset_index(drop=True)
     diagnostics = detect_mapping_diagnostics(mapping_df)
-    if diagnostics.conflicting_input_names:
-        raise ValueError(f"Detected {diagnostics.conflicting_input_names} conflicting synonym mappings.")
-    if diagnostics.null_canonical_species:
-        raise ValueError(f"Detected {diagnostics.null_canonical_species} mappings without canonical species.")
-    return mapping_df, diagnostics
+    release_df, conflicts_df = split_conflicting_mappings(mapping_df)
+    release_df = release_df[
+        release_df["canonical_species"].notna() & (release_df["canonical_species"] != "")
+    ].reset_index(drop=True)
+    return release_df, diagnostics, conflicts_df
 
 
 class SynonymLookup:
     """In-memory lookup for canonical species and synonyms."""
 
     def __init__(self, mapping_df: pd.DataFrame):
-        mapping_df, diagnostics = build_synonym_mapping(mapping_df)
+        mapping_df, diagnostics, _ = build_synonym_mapping(mapping_df)
         self.diagnostics = diagnostics
         self._input_to_canonical = {
             normalized_key(row.input_name): row.canonical_species

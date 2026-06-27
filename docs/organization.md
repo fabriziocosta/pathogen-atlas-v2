@@ -54,11 +54,14 @@ Expected release outputs:
 data/01_species/release/
 ├── species_canonical.parquet
 ├── species_synonym_mapping.parquet
+├── species_mapping_conflicts.parquet
 ├── species_taxonomy.parquet
 └── species_mapping_metadata.json
 ```
 
 The main rule for this phase is that downstream phases should consume the release parquet files rather than repeating synonym logic. This gives the project a single taxonomic source of truth.
+
+`species_synonym_mapping.parquet` contains only unambiguous input-name to canonical-species mappings. If LPSN provides the same normalized input name with multiple canonical species, those rows are excluded from the release mapping and written to `species_mapping_conflicts.parquet` for review. The conflict count is also recorded in `species_mapping_metadata.json`.
 
 Phase 1 is implemented as a live LPSN rebuild. It uses V1 mapping files only for diagnostic comparison and never treats them as authoritative inputs. Local LPSN credentials must be stored in ignored config:
 
@@ -90,6 +93,10 @@ downloaded, synonym resolution prefers local candidate records for accepted-name
 IDs and calls LPSN only as a fallback. Fallback lookups are cached in
 `data/01_species/raw/lpsn_lookup_cache.jsonl`. Full parent taxonomy hierarchy
 traversal is disabled by default through `enrich_taxonomy_hierarchy: false`.
+With this default, completed local candidate records are sufficient for most
+accepted-name resolution. LPSN is queried again only for accepted-name IDs that
+are missing from the local candidate cache, which keeps resume runs local as
+much as possible.
 
 ## Phase 2: Abstract Acquisition
 
