@@ -295,6 +295,33 @@ def test_enrich_record_can_skip_taxonomy_hierarchy() -> None:
     assert "_pathogen_atlas_accepted_hierarchy" in full
 
 
+def test_enrich_record_resolves_misspelling_correct_name() -> None:
+    wrapper = LpsnClientWrapper.__new__(LpsnClientWrapper)
+    accepted = {
+        "id": 101,
+        "full_name": "Enterocloster aldenensis",
+        "category": "species",
+        "lpsn_taxonomic_status": "correct name",
+    }
+    misspelling = {
+        "id": 102,
+        "full_name": "Enterocloster aldensis",
+        "category": "species",
+        "lpsn_taxonomic_status": "misspelling",
+        "nomenclatural_status": "inaccurate spelling",
+        "lpsn_correct_name_id": 101,
+    }
+    wrapper.get_entry_by_id = lambda taxon_id: accepted
+
+    enriched = wrapper.enrich_record(misspelling, enrich_taxonomy_hierarchy=False)
+    normalised = normalise_lpsn_records([enriched], retrieved_at="2026-01-01T00:00:00+00:00")
+
+    assert enriched["_pathogen_atlas_accepted_record"]["full_name"] == "Enterocloster aldenensis"
+    assert normalised.iloc[0]["input_name"] == "Enterocloster aldensis"
+    assert normalised.iloc[0]["canonical_species"] == "Enterocloster aldenensis"
+    assert normalised.iloc[0]["mapping_type"] == "synonym"
+
+
 def test_taxonomy_hierarchy_prefers_local_parent_records() -> None:
     wrapper = LpsnClientWrapper.__new__(LpsnClientWrapper)
     wrapper.get_entry_by_id = lambda taxon_id: (_ for _ in ()).throw(AssertionError("LPSN should not be called"))

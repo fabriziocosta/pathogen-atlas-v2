@@ -104,6 +104,17 @@ def is_synonym(record: dict[str, Any]) -> bool:
     return "synonym" in status_text(record).casefold()
 
 
+def is_correct_name_redirect(record: dict[str, Any]) -> bool:
+    """Return True for non-canonical records that point to a correct-name ID."""
+    correct_id = record.get("lpsn_correct_name_id")
+    record_id = get_record_id(record)
+    if not correct_id or str(correct_id) == str(record_id):
+        return False
+    status = status_text(record).casefold()
+    nomenclatural_status = str(record.get("nomenclatural_status", "")).casefold()
+    return "synonym" in status or "misspelling" in status or "spelling" in nomenclatural_status
+
+
 def hierarchy_to_ranks(hierarchy: list[dict[str, Any]] | None) -> dict[str, str]:
     """Convert LPSN hierarchy records into fixed rank columns."""
     ranks = {rank: "" for rank in RANK_COLUMNS}
@@ -133,11 +144,12 @@ def normalise_lpsn_records(
 
         accepted_record = record.get("_pathogen_atlas_accepted_record")
         accepted_hierarchy = record.get("_pathogen_atlas_accepted_hierarchy")
-        mapping_type = "synonym" if is_synonym(record) else "accepted"
+        redirects_to_correct_name = is_correct_name_redirect(record)
+        mapping_type = "synonym" if redirects_to_correct_name else "accepted"
         canonical_record = accepted_record if accepted_record else record
         canonical_name = get_record_name(canonical_record) or input_name
         canonical_id = get_record_id(canonical_record) or record.get("lpsn_correct_name_id") or get_record_id(record)
-        if is_synonym(record) and not accepted_record:
+        if redirects_to_correct_name and not accepted_record:
             mapping_type = "unresolved_synonym"
 
         genus, specific_epithet, subspecies_epithet = parse_species_name(canonical_name)

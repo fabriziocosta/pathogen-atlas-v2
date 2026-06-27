@@ -19,6 +19,7 @@ from pathogen_atlas_v2.abstracts.abstract_exports import (
 from pathogen_atlas_v2.abstracts.pubmed_client import PubMedClientError
 from pathogen_atlas_v2.abstracts.pubmed_query_plan import (
     PubMedQueryPlanError,
+    render_query_records,
     materialize_pubmed_query_plan,
 )
 from pathogen_atlas_v2.abstracts.pubmed_query_templates import (
@@ -285,8 +286,14 @@ def phase2_query_plan_preview(query_plan_path: str | Path, n_rows: int = 20) -> 
     if not path.exists():
         return pd.DataFrame([{"status": "missing", "path": str(path)}])
     plan = load_yaml(path)
+    queries = plan.get("queries")
+    if queries is None and "synonym_groups" in plan:
+        preview_plan = {**plan, "synonym_groups": plan.get("synonym_groups", [])[:n_rows]}
+        queries = render_query_records(preview_plan)[:n_rows]
+    else:
+        queries = (queries or [])[:n_rows]
     rows = []
-    for query in plan.get("queries", [])[:n_rows]:
+    for query in queries:
         rows.append(
             {
                 "query_id": query.get("query_id"),
@@ -309,11 +316,12 @@ def phase2_synonym_counts(query_plan_path: str | Path) -> pd.DataFrame:
     plan = load_yaml(path)
     rows = []
     by_species: dict[str, dict[str, Any]] = {}
-    for query in plan.get("queries", []):
-        canonical_species = query.get("canonical_species")
+    items = plan.get("synonym_groups") or plan.get("queries", [])
+    for item in items:
+        canonical_species = item.get("canonical_species")
         if not canonical_species:
             continue
-        matched_names = list(dict.fromkeys(query.get("matched_names", [])))
+        matched_names = list(dict.fromkeys(item.get("matched_names", [])))
         current = by_species.get(canonical_species)
         if current is None or len(matched_names) > len(current["matched_names"]):
             by_species[canonical_species] = {
@@ -382,7 +390,27 @@ def plot_phase2_synonym_distribution(query_plan_path: str | Path):
     values = counts["synonym_count"].astype(int)
     max_value = int(values.max()) if not values.empty else 0
     bins = range(0, max_value + 2)
-    ax.hist(values, bins=bins, align="left", rwidth=0.82, color="#2f6f9f", edgecolor="#1d3f5e")
+    bar_values = values.value_counts().sort_index()
+    bars = ax.bar(
+        bar_values.index.astype(int),
+        bar_values.values.astype(int),
+        width=0.82,
+        align="center",
+        color="#2f6f9f",
+        edgecolor="#1d3f5e",
+    )
+    ax.set_yscale("log")
+    for bar in bars:
+        count = int(bar.get_height())
+        ax.annotate(
+            f"{count}",
+            xy=(bar.get_x() + bar.get_width() / 2, count),
+            xytext=(0, 3),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+        )
     ax.set_title("Synonyms Per Canonical Species")
     ax.set_xlabel("Number of synonyms")
     ax.set_ylabel("Canonical species")
@@ -423,6 +451,17 @@ def _phase2_select_query_example(
         return {"status": "missing", "path": str(path), "query": f"Query plan missing: {path}"}
     plan = load_yaml(path)
     queries = plan.get("queries", [])
+    if not queries and "synonym_groups" in plan:
+        groups = plan.get("synonym_groups", [])
+        if prefer_synonyms:
+            groups = sorted(groups, key=lambda item: len(item.get("matched_names", [])), reverse=True)
+        else:
+            query_index = min(max(query_index, 0), len(groups) - 1) if groups else 0
+            groups = groups[query_index : query_index + 1]
+        if groups:
+            preview_plan = {**plan, "synonym_groups": groups[:1]}
+            query = render_query_records(preview_plan)[0]
+            return {"status": "from_compact_query_plan", **query}
     if not queries:
         return {"status": "empty_query_plan", "path": str(path), "query": "Query plan contains no rendered queries."}
     if prefer_synonyms:

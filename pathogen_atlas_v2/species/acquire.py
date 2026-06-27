@@ -402,6 +402,15 @@ def records_missing_taxonomy_hierarchy(records: list[dict[str, Any]]) -> int:
     return sum(1 for record in records if "_pathogen_atlas_hierarchy" not in record)
 
 
+def records_missing_correct_name_resolution(records: list[dict[str, Any]]) -> int:
+    """Return records missing cached correct-name details for non-canonical names."""
+    return sum(
+        1
+        for record in records
+        if should_resolve_correct_name(record) and "_pathogen_atlas_accepted_record" not in record
+    )
+
+
 def prefetch_taxonomy_records(
     client: LpsnClientWrapper,
     local_records_by_id: dict[str, dict[str, Any]],
@@ -454,17 +463,20 @@ def backfill_taxonomy_hierarchy(
 ) -> list[dict[str, Any]]:
     """Rewrite cached raw records with taxonomy hierarchy enrichment."""
     local_records_by_id = records_by_lpsn_id([*candidate_records, *records])
-    prefetch_taxonomy_records(client, local_records_by_id, log=log)
+    if config.enrich_taxonomy_hierarchy:
+        prefetch_taxonomy_records(client, local_records_by_id, log=log)
     hierarchy_cache = seed_hierarchy_cache(records)
     total = len(records)
     enriched_records: list[dict[str, Any]] = []
     for index, record in enumerate(records, start=1):
+        needs_hierarchy = config.enrich_taxonomy_hierarchy and "_pathogen_atlas_hierarchy" not in record
+        needs_correct_name = should_resolve_correct_name(record) and "_pathogen_atlas_accepted_record" not in record
         enriched = (
             record
-            if "_pathogen_atlas_hierarchy" in record
+            if not needs_hierarchy and not needs_correct_name
             else client.enrich_record(
                 record,
-                enrich_taxonomy_hierarchy=True,
+                enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
                 local_records_by_id=local_records_by_id,
                 hierarchy_cache=hierarchy_cache,
             )
@@ -475,8 +487,8 @@ def backfill_taxonomy_hierarchy(
             write_progress(
                 config.progress_path,
                 status="enriching_taxonomy",
-                mode="taxonomy_backfill",
-                enrich_taxonomy_hierarchy=True,
+                mode="enrichment_backfill",
+                enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
                 total_records=total,
                 candidate_records=len(candidate_records),
                 retrieved_records=len(candidate_records),
@@ -486,7 +498,7 @@ def backfill_taxonomy_hierarchy(
                 raw_records_path=str(config.raw_records_path),
             )
             log_progress(
-                f"Phase 1 taxonomy backfill: {index}/{total} cached records enriched; "
+                f"Phase 1 enrichment backfill: {index}/{total} cached records enriched; "
                 f"{max(total - index, 0)} remaining.",
                 log,
             )
@@ -508,11 +520,13 @@ def acquire_lpsn_species_records(
         if not resume or not active_status:
             records = read_jsonl(config.raw_records_path)
             missing_hierarchy = records_missing_taxonomy_hierarchy(records)
-            if config.enrich_taxonomy_hierarchy and missing_hierarchy:
+            missing_correct_names = records_missing_correct_name_resolution(records)
+            if (config.enrich_taxonomy_hierarchy and missing_hierarchy) or missing_correct_names:
                 cached_backfill_only = True
                 log_progress(
-                    f"Phase 1 acquisition: cached raw records are missing taxonomy hierarchy for "
-                    f"{missing_hierarchy}/{len(records)} records; backfilling from local/cache first.",
+                    "Phase 1 acquisition: cached raw records need enrichment backfill "
+                    f"(missing_taxonomy_hierarchy={missing_hierarchy if config.enrich_taxonomy_hierarchy else 0}, "
+                    f"missing_correct_name_records={missing_correct_names}); using local/cache first.",
                     log,
                 )
             else:
@@ -537,9 +551,11 @@ def acquire_lpsn_species_records(
     candidate_ids = {record_identity(record) for record in candidate_records}
 
     if (
-        config.enrich_taxonomy_hierarchy
-        and existing_records
-        and records_missing_taxonomy_hierarchy(existing_records)
+        existing_records
+        and (
+            (config.enrich_taxonomy_hierarchy and records_missing_taxonomy_hierarchy(existing_records))
+            or records_missing_correct_name_resolution(existing_records)
+        )
     ):
         existing_records = backfill_taxonomy_hierarchy(
             config=config,
@@ -552,8 +568,8 @@ def acquire_lpsn_species_records(
             write_progress(
                 config.progress_path,
                 status="completed",
-                mode="taxonomy_backfill",
-                enrich_taxonomy_hierarchy=True,
+                mode="enrichment_backfill",
+                enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
                 total_records=len(existing_records),
                 candidate_records=len(candidate_records),
                 retrieved_records=len(candidate_records),
@@ -562,7 +578,7 @@ def acquire_lpsn_species_records(
                 candidate_records_path=str(config.candidate_records_path),
                 raw_records_path=str(config.raw_records_path),
             )
-            log_progress(f"Phase 1 taxonomy backfill: completed {len(existing_records)} cached records.", log)
+            log_progress(f"Phase 1 enrichment backfill: completed {len(existing_records)} cached records.", log)
             return existing_records
         completed_ids = {record_identity(record) for record in existing_records}
 
