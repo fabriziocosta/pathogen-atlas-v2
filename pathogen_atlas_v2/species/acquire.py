@@ -145,13 +145,9 @@ class LpsnClientWrapper:
         max_retries: int = 5,
         lookup_cache_path: str | Path | None = None,
     ):
-        try:
-            import lpsn
-        except ImportError as exc:
-            raise SpeciesAcquisitionError(
-                "The 'lpsn' package is required for live acquisition. Install project dependencies first."
-            ) from exc
-        self.client = lpsn.LpsnClient(credentials.username, credentials.password)
+        self.credentials = credentials
+        self._lpsn_module = self._load_lpsn_module()
+        self.client = self._new_client()
         self.wait_time_seconds = wait_time_seconds
         self.max_retries = max_retries
         self.lookup_cache_path = Path(lookup_cache_path) if lookup_cache_path else None
@@ -161,10 +157,49 @@ class LpsnClientWrapper:
                 cache_id = record.get("_pathogen_atlas_cache_id") or record_identity(record)
                 self._record_cache[str(cache_id)] = record
 
+    def _load_lpsn_module(self) -> Any:
+        """Load the LPSN package."""
+        try:
+            import lpsn
+        except ImportError as exc:
+            raise SpeciesAcquisitionError(
+                "The 'lpsn' package is required for live acquisition. Install project dependencies first."
+            ) from exc
+        return lpsn
+
+    def _new_client(self) -> Any:
+        """Create a fresh authenticated LPSN client."""
+        return self._lpsn_module.LpsnClient(self.credentials.username, self.credentials.password)
+
+    def _reauthenticate(self) -> None:
+        """Replace the LPSN client after token expiry or invalid refresh-token errors."""
+        self.client = self._new_client()
+
+    @staticmethod
+    def _is_auth_error(exc: Exception) -> bool:
+        """Return True for LPSN/Keycloak token failures that can be fixed by re-login."""
+        text = f"{type(exc).__name__}: {exc}".casefold()
+        return any(
+            marker in text
+            for marker in (
+                "keycloak",
+                "invalid_grant",
+                "token is not active",
+                "expired token",
+                "unauthorized",
+            )
+        )
+
     def _search(self, **kwargs: Any) -> Any:
         @retry(max_retries=self.max_retries)
         def call() -> Any:
-            return self.client.search(**kwargs)
+            try:
+                return self.client.search(**kwargs)
+            except Exception as exc:
+                if self._is_auth_error(exc):
+                    self._reauthenticate()
+                    return self.client.search(**kwargs)
+                raise
 
         result = call()
         time.sleep(self.wait_time_seconds)
@@ -176,15 +211,25 @@ class LpsnClientWrapper:
 
     def iter_search_results(self, **kwargs: Any) -> Iterable[dict[str, Any]]:
         """Yield all records for an LPSN search."""
-        count = self.search_count(**kwargs)
-        if not count:
-            return
-        yield from (record for record in self.client.retrieve() if isinstance(record, dict))
+        records = self.search_all(**kwargs)
+        yield from records
         time.sleep(self.wait_time_seconds)
 
     def search_all(self, **kwargs: Any) -> list[dict[str, Any]]:
-        """Return all paginated search results."""
-        return list(self.iter_search_results(**kwargs))
+        """Return all paginated search results with auth-refresh recovery."""
+        @retry(max_retries=self.max_retries)
+        def call() -> list[dict[str, Any]]:
+            try:
+                count = self.search_count(**kwargs)
+                if not count:
+                    return []
+                return [record for record in self.client.retrieve() if isinstance(record, dict)]
+            except Exception as exc:
+                if self._is_auth_error(exc):
+                    self._reauthenticate()
+                raise
+
+        return call()
 
     def get_entry_by_id(self, taxon_id: Any) -> dict[str, Any] | None:
         """Retrieve a single LPSN record by ID, using an in-memory cache."""
@@ -203,6 +248,19 @@ class LpsnClientWrapper:
             append_jsonl(self.lookup_cache_path, cache_record)
         return record
 
+    def get_entry_by_id_local_first(
+        self,
+        taxon_id: Any,
+        local_records_by_id: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | None:
+        """Retrieve an LPSN record by ID, preferring downloaded local records."""
+        if not taxon_id:
+            return None
+        cache_id = str(taxon_id)
+        if local_records_by_id and cache_id in local_records_by_id:
+            return local_records_by_id[cache_id]
+        return self.get_entry_by_id(cache_id)
+
     def reconstruct_hierarchy(self, record: dict[str, Any]) -> list[dict[str, Any]]:
         """Follow LPSN parent IDs from a record up to the top rank."""
         hierarchy: list[dict[str, Any]] = []
@@ -220,7 +278,12 @@ class LpsnClientWrapper:
             current = self.get_entry_by_id(parent_id)
         return hierarchy
 
-    def enrich_record(self, record: dict[str, Any], enrich_taxonomy_hierarchy: bool = False) -> dict[str, Any]:
+    def enrich_record(
+        self,
+        record: dict[str, Any],
+        enrich_taxonomy_hierarchy: bool = False,
+        local_records_by_id: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Attach hierarchy and accepted-record details needed by normalisation."""
         enriched = dict(record)
         if enrich_taxonomy_hierarchy:
@@ -228,7 +291,7 @@ class LpsnClientWrapper:
         status = str(record.get("lpsn_taxonomic_status", "")).lower()
         correct_id = record.get("lpsn_correct_name_id")
         if "synonym" in status and correct_id:
-            accepted = self.get_entry_by_id(correct_id)
+            accepted = self.get_entry_by_id_local_first(correct_id, local_records_by_id=local_records_by_id)
             if accepted:
                 enriched["_pathogen_atlas_accepted_record"] = accepted
                 if enrich_taxonomy_hierarchy:
@@ -245,6 +308,17 @@ def record_identity(record: dict[str, Any]) -> str:
         if record.get(key):
             return str(record[key])
     return str(hash(str(sorted(record.items()))))
+
+
+def records_by_lpsn_id(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Index local records by likely LPSN IDs."""
+    indexed: dict[str, dict[str, Any]] = {}
+    for record in records:
+        for key in ("id", "record_no", "lpsn_taxon_id", "lpsn_id"):
+            value = record.get(key)
+            if value not in (None, ""):
+                indexed[str(value)] = record
+    return indexed
 
 
 def append_jsonl(path: str | Path, record: dict[str, Any]) -> None:
@@ -335,35 +409,48 @@ def acquire_lpsn_species_records(
     )
 
     if len(candidate_records) < total:
-        retrieved_seen = len(candidate_records)
-        for record in client.client.retrieve():
-            if not isinstance(record, dict):
-                continue
-            record_id = record_identity(record)
-            if record_id in candidate_ids:
-                continue
-            append_jsonl(config.candidate_records_path, record)
-            candidate_records.append(record)
-            candidate_ids.add(record_id)
-            retrieved_seen += 1
-            if retrieved_seen == 1 or retrieved_seen % config.progress_log_every == 0 or retrieved_seen >= total:
-                write_progress(
-                    config.progress_path,
-                    status="retrieving",
-                    mode="force_refresh" if force_refresh else "resume",
-                    enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
-                    total_records=total,
-                    candidate_records=len(candidate_records),
-                    retrieved_records=len(candidate_records),
-                    completed_records=len(completed_ids),
-                    remaining_records=max(total - len(completed_ids), 0),
-                    candidate_records_path=str(config.candidate_records_path),
-                    raw_records_path=str(config.raw_records_path),
-                )
+        while len(candidate_records) < total:
+            before_pass = len(candidate_records)
+            try:
+                for record in client.client.retrieve():
+                    if not isinstance(record, dict):
+                        continue
+                    record_id = record_identity(record)
+                    if record_id in candidate_ids:
+                        continue
+                    append_jsonl(config.candidate_records_path, record)
+                    candidate_records.append(record)
+                    candidate_ids.add(record_id)
+                    if len(candidate_records) == 1 or len(candidate_records) % config.progress_log_every == 0 or len(candidate_records) >= total:
+                        write_progress(
+                            config.progress_path,
+                            status="retrieving",
+                            mode="force_refresh" if force_refresh else "resume",
+                            enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
+                            total_records=total,
+                            candidate_records=len(candidate_records),
+                            retrieved_records=len(candidate_records),
+                            completed_records=len(completed_ids),
+                            remaining_records=max(total - len(completed_ids), 0),
+                            candidate_records_path=str(config.candidate_records_path),
+                            raw_records_path=str(config.raw_records_path),
+                        )
+                        log_progress(
+                            f"Phase 1 retrieval: {len(candidate_records)}/{total} candidate records saved.",
+                            log,
+                        )
+            except Exception as exc:
+                if not client._is_auth_error(exc):
+                    raise
                 log_progress(
-                    f"Phase 1 retrieval: {len(candidate_records)}/{total} candidate records saved.",
+                    "Phase 1 retrieval: LPSN token expired; re-authenticating and resuming from saved candidates.",
                     log,
                 )
+                client._reauthenticate()
+                total = client.search_count(taxon_name="", category=config.category)
+                continue
+            if len(candidate_records) == before_pass:
+                break
         if len(candidate_records) < total:
             log_progress(
                 f"Phase 1 retrieval stopped with {len(candidate_records)}/{total} candidate records saved. "
@@ -385,11 +472,20 @@ def acquire_lpsn_species_records(
         raw_records_path=str(config.raw_records_path),
     )
 
+    local_records_by_id = records_by_lpsn_id(candidate_records)
+    log_progress(
+        f"Phase 1 synonym resolution: using {len(local_records_by_id)} local LPSN records before API fallback.",
+        log,
+    )
     for record in candidate_records:
         record_id = record_identity(record)
         if record_id in completed_ids:
             continue
-        enriched = client.enrich_record(record, enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy)
+        enriched = client.enrich_record(
+            record,
+            enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
+            local_records_by_id=local_records_by_id,
+        )
         append_jsonl(config.raw_records_path, enriched)
         existing_records.append(enriched)
         completed_ids.add(record_id)

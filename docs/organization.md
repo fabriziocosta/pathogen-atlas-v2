@@ -82,6 +82,15 @@ python pathogen_atlas_v2/pipelines/01_build_species_synonyms.py
 
 If `data/01_species/raw/lpsn_species_records.jsonl` already exists, the pipeline uses that cache and does not require credentials or network access. Delete the raw cache or call the Python API with `force_refresh=True` to reacquire from LPSN.
 
+Live Phase 1 runs are resumable. Candidate LPSN records are saved immediately
+to `data/01_species/raw/lpsn_species_candidates.jsonl`; resolved records are
+saved to `data/01_species/raw/lpsn_species_records.jsonl`; progress is tracked
+in `data/01_species/raw/lpsn_species_progress.json`. After candidates are
+downloaded, synonym resolution prefers local candidate records for accepted-name
+IDs and calls LPSN only as a fallback. Fallback lookups are cached in
+`data/01_species/raw/lpsn_lookup_cache.jsonl`. Full parent taxonomy hierarchy
+traversal is disabled by default through `enrich_taxonomy_hierarchy: false`.
+
 ## Phase 2: Abstract Acquisition
 
 Purpose: acquire abstracts using species mappings and configurable word filters. This phase should preserve raw records, record filter matches, deduplicate abstracts, and produce a clean abstract corpus.

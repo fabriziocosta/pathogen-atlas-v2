@@ -208,6 +208,42 @@ def test_lpsn_id_lookup_uses_persistent_cache(tmp_path: Path, monkeypatch: pytes
     assert calls["search"] == 1
 
 
+def test_lpsn_id_lookup_reauthenticates_after_invalid_grant(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cache_path = tmp_path / "lpsn_lookup_cache.jsonl"
+    monkeypatch.setattr("pathogen_atlas_v2.species.acquire.time.sleep", lambda seconds: None)
+    calls = {"client_init": 0, "retrieve": 0}
+
+    class FakeClient:
+        def __init__(self, username: str, password: str) -> None:
+            calls["client_init"] += 1
+
+        def search(self, **kwargs):
+            self.result = {"results": [kwargs["id"]], "next": None}
+            return 1
+
+        def retrieve(self):
+            calls["retrieve"] += 1
+            if calls["retrieve"] == 1:
+                raise RuntimeError('KeycloakPostError: 400 invalid_grant Token is not active')
+            yield {"id": 101, "full_name": "Recovered species", "category": "species"}
+
+    monkeypatch.setitem(sys.modules, "lpsn", types.SimpleNamespace(LpsnClient=FakeClient))
+
+    wrapper = LpsnClientWrapper(
+        LpsnCredentials(username="user", password="pass"),
+        wait_time_seconds=0,
+        max_retries=1,
+        lookup_cache_path=cache_path,
+    )
+
+    assert wrapper.get_entry_by_id(101)["full_name"] == "Recovered species"
+    assert calls["client_init"] == 2
+    assert calls["retrieve"] == 2
+
+
 def test_enrich_record_can_skip_taxonomy_hierarchy() -> None:
     wrapper = LpsnClientWrapper.__new__(LpsnClientWrapper)
     wrapper.get_entry_by_id = lambda taxon_id: {"id": taxon_id, "full_name": "Accepted species"}
@@ -228,6 +264,27 @@ def test_enrich_record_can_skip_taxonomy_hierarchy() -> None:
     assert "_pathogen_atlas_accepted_hierarchy" not in fast
     assert "_pathogen_atlas_hierarchy" in full
     assert "_pathogen_atlas_accepted_hierarchy" in full
+
+
+def test_enrich_record_prefers_local_candidate_records_for_accepted_name() -> None:
+    wrapper = LpsnClientWrapper.__new__(LpsnClientWrapper)
+    wrapper.get_entry_by_id = lambda taxon_id: (_ for _ in ()).throw(AssertionError("LPSN should not be called"))
+    accepted = {"id": 101, "full_name": "Local accepted species", "category": "species"}
+    synonym = {
+        "id": 102,
+        "full_name": "Local synonym species",
+        "category": "species",
+        "lpsn_taxonomic_status": "synonym",
+        "lpsn_correct_name_id": 101,
+    }
+
+    enriched = wrapper.enrich_record(
+        synonym,
+        enrich_taxonomy_hierarchy=False,
+        local_records_by_id={"101": accepted},
+    )
+
+    assert enriched["_pathogen_atlas_accepted_record"]["full_name"] == "Local accepted species"
 
 
 def test_phase1_resume_uses_saved_candidate_records(

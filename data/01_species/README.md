@@ -13,9 +13,11 @@ Live acquisition writes retrieved candidate records to
 `raw/lpsn_species_records.jsonl`, and progress to
 `raw/lpsn_species_progress.json`. Resume uses the candidate file first, so a
 run interrupted during retrieval does not start again from zero. The
-`raw/lpsn_lookup_cache.jsonl` file avoids repeating accepted-name and
-parent-record lookups across resumed runs. Parent taxonomy hierarchy traversal
-is off by default for speed; set `enrich_taxonomy_hierarchy: true` in
+synonym-resolution step prefers the downloaded candidate file for accepted-name
+IDs, so most work after retrieval is local. LPSN is used only as a fallback for
+IDs missing from the candidate file. The `raw/lpsn_lookup_cache.jsonl` file
+persists those fallback lookups across resumed runs. Parent taxonomy hierarchy
+traversal is off by default for speed; set `enrich_taxonomy_hierarchy: true` in
 `configs/species_sources.yaml` for the slower full taxonomy pass.
 
 Downstream phases should consume only files in `release/`.
