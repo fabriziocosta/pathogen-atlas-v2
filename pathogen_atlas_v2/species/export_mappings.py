@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.metadata
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -165,9 +166,12 @@ def run_phase1(
     force_refresh: bool = False,
     resume: bool = True,
     log: bool = True,
+    enrich_taxonomy_hierarchy: bool | None = None,
 ) -> dict[str, Any]:
     """Run the complete Phase 1 species synonym rebuild."""
     config = load_species_source_config(config_path)
+    if enrich_taxonomy_hierarchy is not None:
+        config = replace(config, enrich_taxonomy_hierarchy=bool(enrich_taxonomy_hierarchy))
     retrieved_at = utc_now_iso()
     records = acquire_lpsn_species_records(config=config, force_refresh=force_refresh, resume=resume, log=log)
     normalised_df = normalise_lpsn_records(records, source=config.name, retrieved_at=retrieved_at)

@@ -10,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from pathogen_atlas_v2.common.io import read_jsonl
 from pathogen_atlas_v2.species.acquire import (
     LpsnClientWrapper,
     LpsnCredentials,
@@ -19,6 +20,7 @@ from pathogen_atlas_v2.species.acquire import (
     SpeciesAcquisitionError,
     load_lpsn_credentials,
 )
+import pathogen_atlas_v2.species.export_mappings as export_mappings
 from pathogen_atlas_v2.species.export_mappings import run_phase1
 from pathogen_atlas_v2.species.normalise import (
     normalise_lpsn_records,
@@ -113,6 +115,29 @@ sources:
 def write_lpsn_credentials(path: Path) -> None:
     """Write local fake credentials."""
     path.write_text("lpsn:\n  username: user\n  password: pass\n", encoding="utf-8")
+
+
+def test_run_phase1_can_override_taxonomy_hierarchy_selection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw_path = tmp_path / "data/01_species/raw/lpsn_species_records.jsonl"
+    v1_path = tmp_path / "v1_species_to_canonical.csv"
+    config_path = write_phase1_config(tmp_path, raw_path, v1_path)
+    seen: dict[str, bool] = {}
+
+    def fake_acquire(config, force_refresh=False, resume=True, log=True):
+        seen["enrich_taxonomy_hierarchy"] = config.enrich_taxonomy_hierarchy
+        return []
+
+    monkeypatch.setattr(export_mappings, "acquire_lpsn_species_records", fake_acquire)
+    monkeypatch.setattr(export_mappings, "normalise_lpsn_records", lambda records, source, retrieved_at: pd.DataFrame())
+    monkeypatch.setattr(export_mappings, "write_release_outputs", lambda **kwargs: {"status": "completed"})
+
+    metadata = run_phase1(config_path=config_path, enrich_taxonomy_hierarchy=True)
+
+    assert metadata == {"status": "completed"}
+    assert seen["enrich_taxonomy_hierarchy"] is True
 
 
 def test_credential_loader_valid_missing_and_malformed(tmp_path: Path) -> None:
@@ -249,7 +274,9 @@ def test_lpsn_id_lookup_reauthenticates_after_invalid_grant(
 def test_enrich_record_can_skip_taxonomy_hierarchy() -> None:
     wrapper = LpsnClientWrapper.__new__(LpsnClientWrapper)
     wrapper.get_entry_by_id = lambda taxon_id: {"id": taxon_id, "full_name": "Accepted species"}
-    wrapper.reconstruct_hierarchy = lambda record: [{"category": "domain", "full_name": "Bacteria"}]
+    wrapper.reconstruct_hierarchy = lambda record, local_records_by_id=None, hierarchy_cache=None: [
+        {"category": "domain", "full_name": "Bacteria"}
+    ]
     synonym = {
         "id": 102,
         "full_name": "Synonym species",
@@ -266,6 +293,56 @@ def test_enrich_record_can_skip_taxonomy_hierarchy() -> None:
     assert "_pathogen_atlas_accepted_hierarchy" not in fast
     assert "_pathogen_atlas_hierarchy" in full
     assert "_pathogen_atlas_accepted_hierarchy" in full
+
+
+def test_taxonomy_hierarchy_prefers_local_parent_records() -> None:
+    wrapper = LpsnClientWrapper.__new__(LpsnClientWrapper)
+    wrapper.get_entry_by_id = lambda taxon_id: (_ for _ in ()).throw(AssertionError("LPSN should not be called"))
+    species = {
+        "id": 102,
+        "full_name": "Local species",
+        "category": "species",
+        "lpsn_parent_id": 101,
+    }
+    genus = {
+        "id": 101,
+        "full_name": "Localgenus",
+        "category": "genus",
+    }
+
+    hierarchy = wrapper.reconstruct_hierarchy(species, local_records_by_id={"101": genus})
+
+    assert [record["full_name"] for record in hierarchy] == ["Local species", "Localgenus"]
+
+
+def test_taxonomy_hierarchy_cache_reuses_shared_parent_records() -> None:
+    wrapper = LpsnClientWrapper.__new__(LpsnClientWrapper)
+    calls = {"get_entry_by_id": 0}
+
+    def fake_get_entry_by_id(taxon_id):
+        calls["get_entry_by_id"] += 1
+        return {"id": taxon_id, "full_name": "Sharedgenus", "category": "genus"}
+
+    wrapper.get_entry_by_id = fake_get_entry_by_id
+    hierarchy_cache: dict[str, list[dict]] = {}
+    species_one = {
+        "id": 102,
+        "full_name": "Shared one",
+        "category": "species",
+        "lpsn_parent_id": 101,
+    }
+    species_two = {
+        "id": 103,
+        "full_name": "Shared two",
+        "category": "species",
+        "lpsn_parent_id": 101,
+    }
+
+    wrapper.reconstruct_hierarchy(species_one, hierarchy_cache=hierarchy_cache)
+    hierarchy_two = wrapper.reconstruct_hierarchy(species_two, hierarchy_cache=hierarchy_cache)
+
+    assert calls["get_entry_by_id"] == 1
+    assert [record["full_name"] for record in hierarchy_two] == ["Shared two", "Sharedgenus"]
 
 
 def test_enrich_record_prefers_local_candidate_records_for_accepted_name() -> None:
@@ -363,6 +440,91 @@ sources:
     assert calls == {"search": 0, "retrieve": 0}
     assert "records resolved" in captured.out
     assert "records enriched" not in captured.out
+
+
+def test_phase1_backfills_taxonomy_for_completed_cache(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw_path = tmp_path / "data/01_species/raw/lpsn_species_records.jsonl"
+    candidate_path = tmp_path / "data/01_species/raw/lpsn_species_candidates.jsonl"
+    progress_path = tmp_path / "data/01_species/raw/lpsn_species_progress.json"
+    credentials_path = tmp_path / "lpsn_credentials.yaml"
+    write_lpsn_credentials(credentials_path)
+    species = {
+        "id": 1,
+        "full_name": "One species",
+        "category": "species",
+        "lpsn_parent_id": 101,
+    }
+    write_jsonl(raw_path, [species])
+    write_jsonl(candidate_path, [species])
+    write_progress(
+        progress_path,
+        status="completed",
+        total_records=1,
+        candidate_records=1,
+        retrieved_records=1,
+        completed_records=1,
+        remaining_records=0,
+        enrich_taxonomy_hierarchy=False,
+    )
+    config_path = tmp_path / "species_sources.yaml"
+    config_path.write_text(
+        f"""
+sources:
+  - name: lpsn
+    category: species
+    wait_time_seconds: 0
+    max_retries: 0
+    credentials_path: {credentials_path}
+    candidate_records_path: {candidate_path}
+    raw_records_path: {raw_path}
+    lookup_cache_path: {tmp_path / "data/01_species/raw/lpsn_lookup_cache.jsonl"}
+    progress_path: {progress_path}
+    progress_log_every: 1
+    enrich_taxonomy_hierarchy: true
+    normalised_records_path: {tmp_path / "data/01_species/interim/lpsn_species_normalised.parquet"}
+    release:
+      species_canonical_path: {tmp_path / "data/01_species/release/species_canonical.parquet"}
+      species_synonym_mapping_path: {tmp_path / "data/01_species/release/species_synonym_mapping.parquet"}
+      species_mapping_conflicts_path: {tmp_path / "data/01_species/release/species_mapping_conflicts.parquet"}
+      species_taxonomy_path: {tmp_path / "data/01_species/release/species_taxonomy.parquet"}
+      metadata_path: {tmp_path / "data/01_species/release/species_mapping_metadata.json"}
+    v1_reference: {{}}
+""",
+        encoding="utf-8",
+    )
+    calls = {"id_search": 0, "species_search": 0, "category_search": 0, "retrieve": 0}
+
+    class FakeClient:
+        def __init__(self, username: str, password: str) -> None:
+            self.last_search = None
+
+        def search(self, **kwargs):
+            self.last_search = kwargs
+            if "id" in kwargs:
+                calls["id_search"] += 1
+                return 1
+            if kwargs.get("category") in {"genus", "family", "order", "class", "phylum", "kingdom", "domain"}:
+                calls["category_search"] += 1
+                return 1 if kwargs["category"] == "genus" else 0
+            calls["species_search"] += 1
+            raise AssertionError("Completed species cache should not be re-downloaded")
+
+        def retrieve(self):
+            calls["retrieve"] += 1
+            if self.last_search == {"taxon_name": "", "category": "genus"}:
+                yield {"id": 101, "full_name": "Onegenus", "category": "genus"}
+
+    monkeypatch.setitem(sys.modules, "lpsn", types.SimpleNamespace(LpsnClient=FakeClient))
+
+    config = load_species_source_config(config_path)
+    records = acquire_lpsn_species_records(config, resume=True, log=False)
+
+    assert calls == {"id_search": 0, "species_search": 0, "category_search": 7, "retrieve": 1}
+    assert [entry["full_name"] for entry in records[0]["_pathogen_atlas_hierarchy"]] == ["One species", "Onegenus"]
+    assert "_pathogen_atlas_hierarchy" in read_jsonl(raw_path)[0]
 
 
 def test_conflicting_mapping_detection() -> None:

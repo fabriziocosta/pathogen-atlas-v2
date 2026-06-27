@@ -49,10 +49,17 @@ def run_phase_1(
     config_path: str = "configs/species_sources.yaml",
     force_refresh: bool = False,
     resume: bool = True,
+    enrich_taxonomy_hierarchy: bool | None = None,
 ) -> dict[str, Any]:
     """Run Phase 1 and convert expected setup errors into notebook-friendly output."""
     try:
-        return run_phase1(config_path=config_path, force_refresh=force_refresh, resume=resume, log=True)
+        return run_phase1(
+            config_path=config_path,
+            force_refresh=force_refresh,
+            resume=resume,
+            log=True,
+            enrich_taxonomy_hierarchy=enrich_taxonomy_hierarchy,
+        )
     except SpeciesAcquisitionError as exc:
         return {"status": "not_run", "reason": str(exc)}
 

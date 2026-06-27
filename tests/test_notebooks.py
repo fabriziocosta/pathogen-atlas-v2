@@ -52,8 +52,9 @@ def test_phase1_notebook_shows_live_progress_controls() -> None:
     source = "\n".join(cell.source for cell in nb.cells if cell.cell_type == "code")
     assert "FORCE_REFRESH = False" in source
     assert "RESUME = True" in source
+    assert "ENRICH_TAXONOMY_HIERARCHY =" in source
     assert "phase1_progress_status" in source
-    assert "run_phase_1(CONFIG_PATH, force_refresh=FORCE_REFRESH, resume=RESUME)" in source
+    assert "enrich_taxonomy_hierarchy=ENRICH_TAXONOMY_HIERARCHY" in source
 
 
 def test_phase2_acquisition_notebooks_default_to_not_running_network() -> None:

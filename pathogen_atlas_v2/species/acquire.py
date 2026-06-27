@@ -16,6 +16,9 @@ class SpeciesAcquisitionError(RuntimeError):
     """Raised when species acquisition cannot proceed."""
 
 
+TAXONOMY_PREFETCH_CATEGORIES = ("genus", "family", "order", "class", "phylum", "kingdom", "domain")
+
+
 @dataclass(frozen=True)
 class LpsnCredentials:
     """Credentials for the LPSN API."""
@@ -261,21 +264,41 @@ class LpsnClientWrapper:
             return local_records_by_id[cache_id]
         return self.get_entry_by_id(cache_id)
 
-    def reconstruct_hierarchy(self, record: dict[str, Any]) -> list[dict[str, Any]]:
-        """Follow LPSN parent IDs from a record up to the top rank."""
+    def reconstruct_hierarchy(
+        self,
+        record: dict[str, Any],
+        local_records_by_id: dict[str, dict[str, Any]] | None = None,
+        hierarchy_cache: dict[str, list[dict[str, Any]]] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Follow LPSN parent IDs, preferring downloaded local records."""
+        hierarchy_cache = hierarchy_cache if hierarchy_cache is not None else {}
+        start_id = record_identity(record)
+        if start_id in hierarchy_cache:
+            return list(hierarchy_cache[start_id])
+
         hierarchy: list[dict[str, Any]] = []
         current: dict[str, Any] | None = record
         seen: set[Any] = set()
         while current:
-            record_id = current.get("id") or current.get("record_no") or current.get("lpsn_taxon_id")
+            record_id = record_identity(current)
             if record_id in seen:
+                break
+            if hierarchy and record_id in hierarchy_cache:
+                hierarchy.extend(hierarchy_cache[record_id])
                 break
             seen.add(record_id)
             hierarchy.append(current)
             parent_id = current.get("lpsn_parent_id")
             if not parent_id:
                 break
-            current = self.get_entry_by_id(parent_id)
+            parent_cache_id = str(parent_id)
+            if parent_cache_id in hierarchy_cache:
+                hierarchy.extend(hierarchy_cache[parent_cache_id])
+                break
+            current = self.get_entry_by_id_local_first(parent_id, local_records_by_id=local_records_by_id)
+
+        for index, entry in enumerate(hierarchy):
+            hierarchy_cache.setdefault(record_identity(entry), list(hierarchy[index:]))
         return hierarchy
 
     def enrich_record(
@@ -283,19 +306,27 @@ class LpsnClientWrapper:
         record: dict[str, Any],
         enrich_taxonomy_hierarchy: bool = False,
         local_records_by_id: dict[str, dict[str, Any]] | None = None,
+        hierarchy_cache: dict[str, list[dict[str, Any]]] | None = None,
     ) -> dict[str, Any]:
         """Attach hierarchy and accepted-record details needed by normalisation."""
         enriched = dict(record)
         if enrich_taxonomy_hierarchy:
-            enriched["_pathogen_atlas_hierarchy"] = self.reconstruct_hierarchy(record)
-        status = str(record.get("lpsn_taxonomic_status", "")).lower()
+            enriched["_pathogen_atlas_hierarchy"] = self.reconstruct_hierarchy(
+                record,
+                local_records_by_id=local_records_by_id,
+                hierarchy_cache=hierarchy_cache,
+            )
         correct_id = record.get("lpsn_correct_name_id")
-        if "synonym" in status and correct_id:
+        if should_resolve_correct_name(record):
             accepted = self.get_entry_by_id_local_first(correct_id, local_records_by_id=local_records_by_id)
             if accepted:
                 enriched["_pathogen_atlas_accepted_record"] = accepted
                 if enrich_taxonomy_hierarchy:
-                    enriched["_pathogen_atlas_accepted_hierarchy"] = self.reconstruct_hierarchy(accepted)
+                    enriched["_pathogen_atlas_accepted_hierarchy"] = self.reconstruct_hierarchy(
+                        accepted,
+                        local_records_by_id=local_records_by_id,
+                        hierarchy_cache=hierarchy_cache,
+                    )
         return enriched
 
 
@@ -355,6 +386,114 @@ def log_progress(message: str, enabled: bool = True) -> None:
         print(message, flush=True)
 
 
+def should_resolve_correct_name(record: dict[str, Any]) -> bool:
+    """Return True for records whose LPSN correct-name ID should be followed."""
+    correct_id = record.get("lpsn_correct_name_id")
+    record_id = record.get("id") or record.get("record_no") or record.get("lpsn_taxon_id") or record.get("lpsn_id")
+    if not correct_id or str(correct_id) == str(record_id):
+        return False
+    status = str(record.get("lpsn_taxonomic_status", "")).casefold()
+    nomenclatural_status = str(record.get("nomenclatural_status", "")).casefold()
+    return "synonym" in status or "misspelling" in status or "spelling" in nomenclatural_status
+
+
+def records_missing_taxonomy_hierarchy(records: list[dict[str, Any]]) -> int:
+    """Return the number of records missing enriched taxonomy hierarchy."""
+    return sum(1 for record in records if "_pathogen_atlas_hierarchy" not in record)
+
+
+def prefetch_taxonomy_records(
+    client: LpsnClientWrapper,
+    local_records_by_id: dict[str, dict[str, Any]],
+    categories: Iterable[str] = TAXONOMY_PREFETCH_CATEGORIES,
+    log: bool = True,
+) -> int:
+    """Fetch taxonomy rank records by category once and add them to local/cache indexes."""
+    added = 0
+    for category in categories:
+        records = client.search_all(taxon_name="", category=category)
+        category_added = 0
+        for record in records:
+            record_id = record_identity(record)
+            if record_id in local_records_by_id:
+                continue
+            cache_record = {**record, "_pathogen_atlas_cache_id": record_id}
+            local_records_by_id[record_id] = cache_record
+            client._record_cache[record_id] = cache_record
+            if client.lookup_cache_path:
+                append_jsonl(client.lookup_cache_path, cache_record)
+            added += 1
+            category_added += 1
+        log_progress(
+            f"Phase 1 taxonomy prefetch: cached {category_added} new {category} records.",
+            log,
+        )
+    return added
+
+
+def seed_hierarchy_cache(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """Build a hierarchy cache from records that already carry hierarchy."""
+    hierarchy_cache: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        for key in ("_pathogen_atlas_hierarchy", "_pathogen_atlas_accepted_hierarchy"):
+            hierarchy = record.get(key)
+            if not isinstance(hierarchy, list):
+                continue
+            for index, entry in enumerate(hierarchy):
+                if isinstance(entry, dict):
+                    hierarchy_cache.setdefault(record_identity(entry), list(hierarchy[index:]))
+    return hierarchy_cache
+
+
+def backfill_taxonomy_hierarchy(
+    config: LpsnSourceConfig,
+    client: LpsnClientWrapper,
+    records: list[dict[str, Any]],
+    candidate_records: list[dict[str, Any]],
+    log: bool = True,
+) -> list[dict[str, Any]]:
+    """Rewrite cached raw records with taxonomy hierarchy enrichment."""
+    local_records_by_id = records_by_lpsn_id([*candidate_records, *records])
+    prefetch_taxonomy_records(client, local_records_by_id, log=log)
+    hierarchy_cache = seed_hierarchy_cache(records)
+    total = len(records)
+    enriched_records: list[dict[str, Any]] = []
+    for index, record in enumerate(records, start=1):
+        enriched = (
+            record
+            if "_pathogen_atlas_hierarchy" in record
+            else client.enrich_record(
+                record,
+                enrich_taxonomy_hierarchy=True,
+                local_records_by_id=local_records_by_id,
+                hierarchy_cache=hierarchy_cache,
+            )
+        )
+        enriched_records.append(enriched)
+        local_records_by_id.update(records_by_lpsn_id([enriched]))
+        if index == 1 or index % config.progress_log_every == 0 or index >= total:
+            write_progress(
+                config.progress_path,
+                status="enriching_taxonomy",
+                mode="taxonomy_backfill",
+                enrich_taxonomy_hierarchy=True,
+                total_records=total,
+                candidate_records=len(candidate_records),
+                retrieved_records=len(candidate_records),
+                completed_records=index,
+                remaining_records=max(total - index, 0),
+                candidate_records_path=str(config.candidate_records_path),
+                raw_records_path=str(config.raw_records_path),
+            )
+            log_progress(
+                f"Phase 1 taxonomy backfill: {index}/{total} cached records enriched; "
+                f"{max(total - index, 0)} remaining.",
+                log,
+            )
+    write_jsonl(config.raw_records_path, enriched_records)
+    return enriched_records
+
+
 def acquire_lpsn_species_records(
     config: LpsnSourceConfig,
     force_refresh: bool = False,
@@ -362,11 +501,23 @@ def acquire_lpsn_species_records(
     log: bool = True,
 ) -> list[dict[str, Any]]:
     """Acquire LPSN species records, supporting live progress and resume."""
+    cached_backfill_only = False
     if config.raw_records_path.exists() and not force_refresh:
         progress = load_progress(config.progress_path)
-        if not resume or progress.get("status") not in {"retrieving", "resolving_synonyms", "enriching", "running"}:
-            log_progress(f"Phase 1 acquisition: using cached raw records at {config.raw_records_path}.", log)
-            return read_jsonl(config.raw_records_path)
+        active_status = progress.get("status") in {"retrieving", "resolving_synonyms", "enriching", "running"}
+        if not resume or not active_status:
+            records = read_jsonl(config.raw_records_path)
+            missing_hierarchy = records_missing_taxonomy_hierarchy(records)
+            if config.enrich_taxonomy_hierarchy and missing_hierarchy:
+                cached_backfill_only = True
+                log_progress(
+                    f"Phase 1 acquisition: cached raw records are missing taxonomy hierarchy for "
+                    f"{missing_hierarchy}/{len(records)} records; backfilling from local/cache first.",
+                    log,
+                )
+            else:
+                log_progress(f"Phase 1 acquisition: using cached raw records at {config.raw_records_path}.", log)
+                return records
 
     if force_refresh:
         for path in (config.candidate_records_path, config.raw_records_path, config.progress_path, config.lookup_cache_path):
@@ -384,6 +535,36 @@ def acquire_lpsn_species_records(
     completed_ids = {record_identity(record) for record in existing_records}
     candidate_records = read_jsonl(config.candidate_records_path) if config.candidate_records_path.exists() else []
     candidate_ids = {record_identity(record) for record in candidate_records}
+
+    if (
+        config.enrich_taxonomy_hierarchy
+        and existing_records
+        and records_missing_taxonomy_hierarchy(existing_records)
+    ):
+        existing_records = backfill_taxonomy_hierarchy(
+            config=config,
+            client=client,
+            records=existing_records,
+            candidate_records=candidate_records,
+            log=log,
+        )
+        if cached_backfill_only:
+            write_progress(
+                config.progress_path,
+                status="completed",
+                mode="taxonomy_backfill",
+                enrich_taxonomy_hierarchy=True,
+                total_records=len(existing_records),
+                candidate_records=len(candidate_records),
+                retrieved_records=len(candidate_records),
+                completed_records=len(existing_records),
+                remaining_records=0,
+                candidate_records_path=str(config.candidate_records_path),
+                raw_records_path=str(config.raw_records_path),
+            )
+            log_progress(f"Phase 1 taxonomy backfill: completed {len(existing_records)} cached records.", log)
+            return existing_records
+        completed_ids = {record_identity(record) for record in existing_records}
 
     progress = load_progress(config.progress_path)
     total = int(progress["total_records"]) if progress.get("total_records") else 0
@@ -473,6 +654,9 @@ def acquire_lpsn_species_records(
     )
 
     local_records_by_id = records_by_lpsn_id(candidate_records)
+    if config.enrich_taxonomy_hierarchy:
+        prefetch_taxonomy_records(client, local_records_by_id, log=log)
+    hierarchy_cache = seed_hierarchy_cache(existing_records)
     log_progress(
         f"Phase 1 synonym resolution: using {len(local_records_by_id)} local LPSN records before API fallback.",
         log,
@@ -485,6 +669,7 @@ def acquire_lpsn_species_records(
             record,
             enrich_taxonomy_hierarchy=config.enrich_taxonomy_hierarchy,
             local_records_by_id=local_records_by_id,
+            hierarchy_cache=hierarchy_cache,
         )
         append_jsonl(config.raw_records_path, enriched)
         existing_records.append(enriched)
