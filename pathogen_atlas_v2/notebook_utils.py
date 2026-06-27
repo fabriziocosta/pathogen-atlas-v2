@@ -12,6 +12,7 @@ from typing import Any
 import pandas as pd
 
 from pathogen_atlas_v2.abstracts.abstract_exports import (
+    _read_jsonl_resume_records,
     run_phase2,
     run_phase2_abstract_fetch,
     run_phase2_pmid_acquisition,
@@ -149,6 +150,16 @@ def metadata_counts(metadata: dict[str, Any]) -> pd.DataFrame:
         values = metadata.get(section, {}) if isinstance(metadata, dict) else {}
         for metric, value in values.items():
             rows.append({"section": section, "metric": metric, "value": value})
+    if not rows and isinstance(metadata, dict) and metadata.get("status") == "not_run":
+        return pd.DataFrame(
+            [
+                {
+                    "section": "run_status",
+                    "metric": "not_run_reason",
+                    "value": metadata.get("reason", "not_run"),
+                }
+            ]
+        )
     return pd.DataFrame(rows) if rows else pd.DataFrame([{"status": "no_counts"}])
 
 
@@ -278,6 +289,57 @@ def phase2_output_paths(config_path: str = "configs/pubmed_query_templates.yaml"
     paths = {"query_plan": resolve_path(config["query_plan"]["path"])}
     paths.update({key: resolve_path(path) for key, path in config["outputs"].items()})
     return paths
+
+
+def _format_seconds(seconds: float) -> str:
+    seconds = max(int(round(seconds)), 0)
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours:
+        return f"{hours}h {minutes:02d}m {seconds:02d}s"
+    if minutes:
+        return f"{minutes}m {seconds:02d}s"
+    return f"{seconds}s"
+
+
+def phase2_pmid_acquisition_preflight(
+    template_config_path: str = "configs/pubmed_query_templates.yaml",
+    filter_config_path: str = "configs/abstract_filters.yaml",
+    force_refresh: bool = False,
+) -> pd.DataFrame:
+    """Return a local preflight summary for resumable PMID acquisition."""
+    result = materialize_phase_2_query_plan(template_config_path, filter_config_path)
+    config = load_pubmed_query_template_config(template_config_path)
+    paths = phase2_output_paths(template_config_path)
+    source = config["source"]
+    query_count = int(result.get("query_count") or 0)
+    existing_results = []
+    if paths["raw_search_results_path"].exists() and not force_refresh:
+        existing_results = _read_jsonl_resume_records(paths["raw_search_results_path"], log=False)
+    completed = len({record.get("query_id") for record in existing_results if record.get("query_id")})
+    pending = query_count if force_refresh else max(query_count - completed, 0)
+    request_delay = float(source.get("request_delay_seconds", 0))
+    lower_bound_seconds = pending * request_delay
+    ncbi_config_path = resolve_path(source["ncbi_config_path"])
+    ncbi_config = load_yaml(ncbi_config_path) if ncbi_config_path.exists() else {}
+    ncbi = ncbi_config.get("ncbi", {}) if isinstance(ncbi_config, dict) else {}
+    return pd.DataFrame(
+        [
+            {
+                "query_count": query_count,
+                "completed_queries": 0 if force_refresh else completed,
+                "pending_queries": pending,
+                "force_refresh": force_refresh,
+                "fields": ", ".join(source.get("fields", [])),
+                "request_delay_seconds": request_delay,
+                "lower_bound_runtime": _format_seconds(lower_bound_seconds),
+                "raw_search_results_path": str(paths["raw_search_results_path"]),
+                "ncbi_config_exists": ncbi_config_path.exists(),
+                "ncbi_email": ncbi.get("email", ""),
+                "ncbi_api_key_configured": bool(ncbi.get("api_key")),
+            }
+        ]
+    )
 
 
 def phase2_query_plan_preview(query_plan_path: str | Path, n_rows: int = 20) -> pd.DataFrame:

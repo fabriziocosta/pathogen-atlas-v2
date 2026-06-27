@@ -63,6 +63,9 @@ def test_phase2_acquisition_notebooks_default_to_not_running_network() -> None:
     pmid_source = "\n".join(cell.source for cell in pmid_nb.cells if cell.cell_type == "code")
     abstract_source = "\n".join(cell.source for cell in abstract_nb.cells if cell.cell_type == "code")
     assert "RUN_PUBMED_SEARCH = False" in pmid_source
+    assert "FORCE_REFRESH = False" in pmid_source
+    assert "LOG_EVERY = 100" in pmid_source
+    assert "phase2_pmid_acquisition_preflight" in pmid_source
     assert "run_phase_2_pmid_acquisition" in pmid_source
     assert "RUN_ABSTRACT_FETCH = False" in abstract_source
     assert "run_phase_2_abstract_fetch" in abstract_source
@@ -90,6 +93,14 @@ def test_metadata_display_helpers_return_dataframes() -> None:
     assert summary["overview"].iloc[0]["field"] == "source"
     assert set(summary["counts"]["section"]) == {"record_counts", "mapping_diagnostics"}
     assert nbutils.metadata_v1_comparison(metadata).iloc[0]["metric"] == "available"
+
+
+def test_metadata_counts_explains_not_run_reason() -> None:
+    counts = nbutils.metadata_counts({"status": "not_run", "reason": "Missing config"})
+
+    assert counts.iloc[0]["section"] == "run_status"
+    assert counts.iloc[0]["metric"] == "not_run_reason"
+    assert counts.iloc[0]["value"] == "Missing config"
 
 
 def test_output_summaries_include_row_counts(tmp_path: Path) -> None:

@@ -7,8 +7,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from pathogen_atlas_v2 import notebook_utils as nbutils
 from pathogen_atlas_v2.abstracts.abstract_exports import write_phase2_outputs
 from pathogen_atlas_v2.abstracts.abstract_exports import (
+    _read_jsonl_resume_records,
+    _write_jsonl_atomic,
     build_canonical_pmid_index,
     run_pubmed_fetches,
     run_pubmed_searches,
@@ -174,6 +177,24 @@ def test_query_plan_generation_and_yaml_schema(tmp_path: Path) -> None:
     assert result["query_count"] == 1
 
 
+def test_pmid_acquisition_preflight_reports_resume_counts(tmp_path: Path) -> None:
+    mapping_path = tmp_path / "phase1/species_synonym_mapping.parquet"
+    write_phase1_mapping(mapping_path)
+    filter_path = tmp_path / "abstract_filters.yaml"
+    write_filter_config(filter_path)
+    template_path = write_template_config(tmp_path, mapping_path)
+    raw_results_path = tmp_path / "data/02_abstracts/raw/pubmed_search_results.jsonl"
+    raw_results_path.parent.mkdir(parents=True, exist_ok=True)
+    raw_results_path.write_text('{"query_id": "q_done", "pmids": ["123"]}\n', encoding="utf-8")
+
+    preflight = nbutils.phase2_pmid_acquisition_preflight(template_path, filter_path, force_refresh=False)
+
+    assert preflight.iloc[0]["query_count"] == 1
+    assert preflight.iloc[0]["completed_queries"] == 1
+    assert preflight.iloc[0]["pending_queries"] == 0
+    assert not bool(preflight.iloc[0]["ncbi_config_exists"])
+
+
 def test_ncbi_config_loader_validates_email(tmp_path: Path) -> None:
     config = tmp_path / "ncbi_entrez.yaml"
     config.write_text("ncbi:\n  email: test@example.org\n  api_key: ''\n  tool: pathogen-atlas-v2\n", encoding="utf-8")
@@ -237,6 +258,47 @@ def test_pubmed_searches_skip_existing_query_results() -> None:
     )
     assert client.calls == ["pending"]
     assert {result["query_id"] for result in results} == {"q_1", "q_2"}
+
+
+def test_pubmed_search_progress_logs_eta(capsys: pytest.CaptureFixture[str]) -> None:
+    class FakeClient:
+        def search_pmids(self, query: str) -> list[str]:
+            return [query]
+
+    query_plan = {
+        "queries": [
+            {"query_id": "q_1", "query_hash": "1", "query": "1"},
+            {"query_id": "q_2", "query_hash": "2", "query": "2"},
+        ]
+    }
+
+    run_pubmed_searches(query_plan, FakeClient(), log=True, log_every=1)
+    output = capsys.readouterr().out
+
+    assert "eta_remaining=" in output
+    assert "eta_at=" in output
+    assert "unique_pmids=" in output
+
+
+def test_resume_jsonl_reader_skips_truncated_line(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    path = tmp_path / "pubmed_search_results.jsonl"
+    path.write_text('{"query_id": "q_1", "pmids": ["123"]}\n{"query_id": ', encoding="utf-8")
+
+    records = _read_jsonl_resume_records(path, log=True)
+    output = capsys.readouterr().out
+
+    assert records == [{"query_id": "q_1", "pmids": ["123"]}]
+    assert "Resume warning: ignoring malformed JSONL line 2" in output
+
+
+def test_atomic_jsonl_rewrite_replaces_existing_file(tmp_path: Path) -> None:
+    path = tmp_path / "records.jsonl"
+    path.write_text('{"query_id": "old"}\n', encoding="utf-8")
+
+    _write_jsonl_atomic(path, [{"query_id": "new", "pmids": ["123"]}])
+
+    assert _read_jsonl_resume_records(path, log=False) == [{"query_id": "new", "pmids": ["123"]}]
+    assert not path.with_name("records.jsonl.tmp").exists()
 
 
 def test_pubmed_fetches_skip_existing_pmids() -> None:

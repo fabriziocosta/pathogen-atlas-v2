@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -29,12 +32,18 @@ def _query_plan_path(config: dict[str, Any]) -> Path:
 
 def _append_jsonl(path: str | Path, record: dict[str, Any]) -> None:
     """Append one JSONL record after successful work."""
-    import json
-
     path = ensure_parent(path)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, sort_keys=True))
         handle.write("\n")
+
+
+def _write_jsonl_atomic(path: str | Path, records: list[dict[str, Any]]) -> None:
+    """Write JSONL via a temporary file and atomic rename."""
+    path = ensure_parent(path)
+    tmp_path = path.with_name(f"{path.name}.tmp")
+    write_jsonl(tmp_path, records)
+    tmp_path.replace(path)
 
 
 def _deduplicate_records(records: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
@@ -67,6 +76,48 @@ def _log(message: str, enabled: bool) -> None:
         print(message, flush=True)
 
 
+def _format_duration(seconds: float | None) -> str:
+    if seconds is None or seconds < 0:
+        return "unknown"
+    seconds = int(round(seconds))
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours:
+        return f"{hours}h {minutes:02d}m {seconds:02d}s"
+    if minutes:
+        return f"{minutes}m {seconds:02d}s"
+    return f"{seconds}s"
+
+
+def _progress_eta(started_at: float, completed_this_run: int, remaining: int) -> tuple[str, str]:
+    if completed_this_run <= 0:
+        return "unknown", "unknown"
+    elapsed = time.monotonic() - started_at
+    seconds_per_item = elapsed / completed_this_run
+    eta_seconds = seconds_per_item * remaining
+    eta_at = datetime.now() + timedelta(seconds=eta_seconds)
+    return _format_duration(eta_seconds), eta_at.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _read_jsonl_resume_records(path: str | Path, log: bool = True) -> list[dict[str, Any]]:
+    """Read JSONL for resume, ignoring malformed trailing lines from hard interrupts."""
+    records: list[dict[str, Any]] = []
+    path = Path(path)
+    with path.open("r", encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError as exc:
+                _log(
+                    f"Resume warning: ignoring malformed JSONL line {line_number} in {path}: {exc}",
+                    log,
+                )
+    return records
+
+
 def run_pubmed_searches(
     query_plan: dict[str, Any],
     client: PubMedEntrezClient,
@@ -81,6 +132,7 @@ def run_pubmed_searches(
     queries = query_plan.get("queries", [])
     pending = [query for query in queries if query["query_id"] not in completed]
     _log(f"PMID search: {len(completed)}/{len(queries)} queries already complete; {len(pending)} remaining.", log)
+    started_at = time.monotonic()
     for offset, query in enumerate(pending, start=1):
         pmids = client.search_pmids(query["query"])
         record = {"query_id": query["query_id"], "query_hash": query["query_hash"], "pmids": pmids}
@@ -89,9 +141,14 @@ def run_pubmed_searches(
         if output_path:
             _append_jsonl(output_path, record)
         if offset == 1 or offset == len(pending) or offset % log_every == 0:
+            remaining = len(queries) - len(completed)
+            eta_remaining, eta_at = _progress_eta(started_at, offset, remaining)
+            unique_pmids = len({str(pmid) for result in results for pmid in result.get("pmids", [])})
             _log(
                 f"PMID search: {len(completed)}/{len(queries)} queries complete; "
-                f"{len(queries) - len(completed)} remaining.",
+                f"{remaining} remaining; unique_pmids={unique_pmids}; "
+                f"elapsed={_format_duration(time.monotonic() - started_at)}; "
+                f"eta_remaining={eta_remaining}; eta_at={eta_at}.",
                 log,
             )
     return _deduplicate_records(results, "query_id")
@@ -281,7 +338,7 @@ def write_phase2_intermediate_tables(
         search_results,
         template_config_path,
     )
-    write_jsonl(paths["raw_search_results_path"], enriched_search_results)
+    _write_jsonl_atomic(paths["raw_search_results_path"], enriched_search_results)
     for path, df in [
         (paths["canonical_pmid_index_path"], canonical_pmid_df),
         (paths["sampled_canonical_pmid_index_path"], sampled_canonical_pmid_df),
@@ -310,7 +367,11 @@ def run_phase2_pmid_acquisition(
 
     if force_refresh and paths["raw_search_results_path"].exists():
         paths["raw_search_results_path"].unlink()
-    existing_results = read_jsonl(paths["raw_search_results_path"]) if paths["raw_search_results_path"].exists() else []
+    existing_results = (
+        _read_jsonl_resume_records(paths["raw_search_results_path"], log=log)
+        if paths["raw_search_results_path"].exists()
+        else []
+    )
     client = _build_pubmed_client(config)
     search_results = run_pubmed_searches(
         query_plan,
@@ -349,7 +410,7 @@ def run_phase2_abstract_fetch(
     query_plan = load_pubmed_query_plan(_query_plan_path(config))
     if not paths["raw_search_results_path"].exists():
         raise PubMedClientError("Missing PubMed search results. Run the PMID acquisition notebook first.")
-    search_results = read_jsonl(paths["raw_search_results_path"])
+    search_results = _read_jsonl_resume_records(paths["raw_search_results_path"], log=log)
     search_results, _, _ = prepare_phase2_search_results(query_plan, search_results, template_config_path)
     write_jsonl(paths["raw_search_results_path"], search_results)
 
