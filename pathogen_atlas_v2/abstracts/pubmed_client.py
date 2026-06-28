@@ -88,18 +88,20 @@ class PubMedEntrezClient:
 
     def _search_pmid_batch(self, query: str, retstart: int) -> dict[str, Any]:
         """Search one PubMed PMID page."""
-        handle = self._with_retries(
-            Entrez.esearch,
-            db="pubmed",
-            term=query,
-            retmode="xml",
-            retmax=self.retmax,
-            retstart=retstart,
-        )
-        try:
-            record = Entrez.read(handle)
-        finally:
-            handle.close()
+        def read_search_page() -> dict[str, Any]:
+            handle = Entrez.esearch(
+                db="pubmed",
+                term=query,
+                retmode="xml",
+                retmax=self.retmax,
+                retstart=retstart,
+            )
+            try:
+                return Entrez.read(handle)
+            finally:
+                handle.close()
+
+        record = self._with_retries(read_search_page)
         return {
             "count": int(record.get("Count", len(record.get("IdList", [])))),
             "pmids": [str(pmid) for pmid in record.get("IdList", [])],

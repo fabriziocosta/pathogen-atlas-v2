@@ -60,6 +60,11 @@ def _deduplicate_records(records: list[dict[str, Any]], key: str) -> list[dict[s
     return [by_key[value] for value in order]
 
 
+def _is_successful_search_result(record: dict[str, Any]) -> bool:
+    """Return whether a saved search result should be treated as complete."""
+    return record.get("status", "completed") == "completed"
+
+
 def _build_pubmed_client(config: dict[str, Any]) -> PubMedEntrezClient:
     """Build a configured PubMed client."""
     ncbi_config = load_ncbi_entrez_config(config["source"]["ncbi_config_path"])
@@ -128,25 +133,44 @@ def run_pubmed_searches(
 ) -> list[dict[str, Any]]:
     """Run PubMed searches for all rendered queries, skipping completed query IDs."""
     results = _deduplicate_records(existing_results or [], "query_id")
-    completed = {result["query_id"] for result in results}
+    completed = {result["query_id"] for result in results if _is_successful_search_result(result)}
     queries = query_plan.get("queries", [])
     pending = [query for query in queries if query["query_id"] not in completed]
     _log(f"PMID search: {len(completed)}/{len(queries)} queries already complete; {len(pending)} remaining.", log)
     started_at = time.monotonic()
+    failed_this_run = 0
     for offset, query in enumerate(pending, start=1):
-        pmids = client.search_pmids(query["query"])
-        record = {"query_id": query["query_id"], "query_hash": query["query_hash"], "pmids": pmids}
+        try:
+            pmids = client.search_pmids(query["query"])
+            record = {
+                "query_id": query["query_id"],
+                "query_hash": query["query_hash"],
+                "pmids": pmids,
+                "status": "completed",
+            }
+            completed.add(query["query_id"])
+        except Exception as exc:
+            failed_this_run += 1
+            record = {
+                "query_id": query["query_id"],
+                "query_hash": query["query_hash"],
+                "pmids": [],
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            }
+            _log(f"PMID search warning: {query['query_id']} failed after retries: {type(exc).__name__}: {exc}", log)
         results.append(record)
-        completed.add(query["query_id"])
         if output_path:
             _append_jsonl(output_path, record)
         if offset == 1 or offset == len(pending) or offset % log_every == 0:
-            remaining = len(queries) - len(completed)
+            remaining = len(pending) - offset
             eta_remaining, eta_at = _progress_eta(started_at, offset, remaining)
             unique_pmids = len({str(pmid) for result in results for pmid in result.get("pmids", [])})
             _log(
                 f"PMID search: {len(completed)}/{len(queries)} queries complete; "
-                f"{remaining} remaining; unique_pmids={unique_pmids}; "
+                f"{failed_this_run} failed this run; {remaining} pending this run; "
+                f"unique_pmids={unique_pmids}; "
                 f"elapsed={_format_duration(time.monotonic() - started_at)}; "
                 f"eta_remaining={eta_remaining}; eta_at={eta_at}.",
                 log,
@@ -384,11 +408,15 @@ def run_phase2_pmid_acquisition(
     tables = write_phase2_intermediate_tables(query_plan, search_results, template_config_path)
     unique_pmids = len({str(pmid) for result in tables["search_results"] for pmid in result.get("pmids", [])})
     sampled_unique_pmids = len({str(pmid) for result in tables["search_results"] for pmid in result.get("sampled_pmids", [])})
+    failed_search_queries = sum(
+        1 for result in tables["search_results"] if not _is_successful_search_result(result)
+    )
     return {
-        "status": "completed",
+        "status": "completed_with_failures" if failed_search_queries else "completed",
         "query_plan": {"path": plan_result["path"], "query_count": len(query_plan.get("queries", [])), "approval": query_plan.get("approval", {})},
         "record_counts": {
             "search_result_rows": len(tables["search_results"]),
+            "failed_search_queries": failed_search_queries,
             "unique_pmids": unique_pmids,
             "sampled_unique_pmids": sampled_unique_pmids,
             "canonical_species_with_pmids": len(tables["canonical_pmid_index"]),

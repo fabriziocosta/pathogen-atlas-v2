@@ -28,10 +28,109 @@ from pathogen_atlas_v2.abstracts.pubmed_query_templates import (
     load_pubmed_query_template_config,
     render_pubmed_query,
 )
-from pathogen_atlas_v2.common.io import load_yaml, resolve_path
+from pathogen_atlas_v2.common.io import ensure_parent, load_yaml, resolve_path
 from pathogen_atlas_v2.species.acquire import SpeciesAcquisitionError
 from pathogen_atlas_v2.species.acquire import load_progress as load_phase1_progress_json
 from pathogen_atlas_v2.species.export_mappings import run_phase1
+
+
+NOTEBOOK_PARAMETERS_PATH = "configs/notebook_parameters.yaml"
+DEFAULT_NOTEBOOK_PARAMETERS: dict[str, Any] = {
+    "phase1_species_synonyms": {
+        "config_path": "configs/species_sources.yaml",
+        "force_refresh": False,
+        "resume": True,
+        "run_phase": False,
+        "enrich_taxonomy_hierarchy": True,
+    },
+    "phase2_query_plan": {
+        "template_config_path": "configs/pubmed_query_templates.yaml",
+        "filter_config_path": "configs/abstract_filters.yaml",
+        "preview_rows": 20,
+    },
+    "phase2_pmid_acquisition": {
+        "template_config_path": "configs/pubmed_query_templates.yaml",
+        "filter_config_path": "configs/abstract_filters.yaml",
+        "force_refresh": False,
+        "run_pubmed_search": False,
+        "log_every": 100,
+    },
+    "phase2_abstract_fetch": {
+        "template_config_path": "configs/pubmed_query_templates.yaml",
+        "filter_config_path": "configs/abstract_filters.yaml",
+        "force_refresh": False,
+        "run_abstract_fetch": False,
+        "log_every": 10,
+    },
+    "phase2_table_stats": {
+        "template_config_path": "configs/pubmed_query_templates.yaml",
+        "preview_rows": 10,
+    },
+    "phase3_llm_extraction_vectorisation": {
+        "run_phase": False,
+        "pipeline_module": "pathogen_atlas_v2.pipelines.03_run_llm_extraction",
+        "openai_model": "gpt-5-nano",
+    },
+    "phase4_table_creation": {
+        "run_phase": False,
+        "pipeline_module": "pathogen_atlas_v2.pipelines.04_build_tables",
+    },
+    "phase5_plot_creation": {
+        "run_phase": False,
+        "pipeline_module": "pathogen_atlas_v2.pipelines.05_make_plots",
+    },
+}
+
+
+def _deep_merge_dicts(base: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any]:
+    """Return a recursive merge without mutating inputs."""
+    merged = dict(base)
+    for key, value in updates.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge_dicts(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def load_notebook_parameters(path: str | Path = NOTEBOOK_PARAMETERS_PATH) -> dict[str, Any]:
+    """Load notebook parameters, falling back to tracked defaults."""
+    config_path = resolve_path(path)
+    if not config_path.exists():
+        return dict(DEFAULT_NOTEBOOK_PARAMETERS)
+    loaded = load_yaml(config_path)
+    if not isinstance(loaded, dict):
+        loaded = {}
+    return _deep_merge_dicts(DEFAULT_NOTEBOOK_PARAMETERS, loaded)
+
+
+def save_notebook_parameters(parameters: dict[str, Any], path: str | Path = NOTEBOOK_PARAMETERS_PATH) -> dict[str, Any]:
+    """Save notebook parameters as YAML and return a small result dictionary."""
+    import yaml
+
+    merged = _deep_merge_dicts(DEFAULT_NOTEBOOK_PARAMETERS, parameters)
+    config_path = ensure_parent(resolve_path(path))
+    with config_path.open("w", encoding="utf-8") as handle:
+        yaml.safe_dump(merged, handle, sort_keys=False, allow_unicode=False)
+    return {"status": "saved", "path": str(config_path), "phase_count": len(merged)}
+
+
+def notebook_phase_parameters(phase: str, path: str | Path = NOTEBOOK_PARAMETERS_PATH) -> dict[str, Any]:
+    """Return parameters for one notebook phase."""
+    parameters = load_notebook_parameters(path)
+    return dict(parameters.get(phase, {}))
+
+
+def notebook_parameters_overview(parameters: dict[str, Any] | None = None) -> pd.DataFrame:
+    """Return a compact table of configured notebook phase parameters."""
+    parameters = parameters or load_notebook_parameters()
+    rows = []
+    for phase, values in parameters.items():
+        row = {"phase": phase}
+        if isinstance(values, dict):
+            row.update(values)
+        rows.append(row)
+    return pd.DataFrame(rows)
 
 
 def phase_status(phase: int, name: str, implemented: bool) -> pd.DataFrame:

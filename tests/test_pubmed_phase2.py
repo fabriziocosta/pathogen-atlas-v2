@@ -234,6 +234,33 @@ def test_pubmed_client_mocked_search_and_fetch(monkeypatch: pytest.MonkeyPatch) 
     assert client.fetch_medline_records(["123"])[0]["PMID"] == "123"
 
 
+def test_pubmed_client_retries_entrez_read_failures(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeHandle:
+        def close(self) -> None:
+            pass
+
+    read_calls = {"count": 0}
+
+    def fake_read(handle):
+        read_calls["count"] += 1
+        if read_calls["count"] == 1:
+            raise RuntimeError("Search Backend failed: HTTP request returned 502 status.")
+        return {"IdList": ["123"], "Count": "1"}
+
+    monkeypatch.setattr("pathogen_atlas_v2.abstracts.pubmed_client.Entrez.esearch", lambda **kwargs: FakeHandle())
+    monkeypatch.setattr("pathogen_atlas_v2.abstracts.pubmed_client.Entrez.read", fake_read)
+
+    client = PubMedEntrezClient(
+        NcbiEntrezConfig(email="test@example.org", api_key=None, tool="fixture"),
+        request_delay_seconds=0,
+        max_retries=1,
+        retmax=100,
+    )
+
+    assert client.search_pmids("fixture") == ["123"]
+    assert read_calls["count"] == 2
+
+
 def test_pubmed_searches_skip_existing_query_results() -> None:
     class FakeClient:
         def __init__(self) -> None:
@@ -258,6 +285,65 @@ def test_pubmed_searches_skip_existing_query_results() -> None:
     )
     assert client.calls == ["pending"]
     assert {result["query_id"] for result in results} == {"q_1", "q_2"}
+
+
+def test_pubmed_searches_continue_after_query_failure(capsys: pytest.CaptureFixture[str]) -> None:
+    class FakeClient:
+        def search_pmids(self, query: str) -> list[str]:
+            if query == "bad":
+                raise RuntimeError("Search Backend failed: HTTP request returned 502 status.")
+            return [query]
+
+    query_plan = {
+        "queries": [
+            {"query_id": "q_1", "query_hash": "1", "query": "bad"},
+            {"query_id": "q_2", "query_hash": "2", "query": "123"},
+        ]
+    }
+
+    results = run_pubmed_searches(query_plan, FakeClient(), log=True, log_every=1)
+    output = capsys.readouterr().out
+
+    assert results[0]["status"] == "failed"
+    assert results[0]["error_type"] == "RuntimeError"
+    assert results[1]["status"] == "completed"
+    assert results[1]["pmids"] == ["123"]
+    assert "PMID search warning: q_1 failed after retries" in output
+
+
+def test_pubmed_searches_retry_failed_resume_records() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def search_pmids(self, query: str) -> list[str]:
+            self.calls.append(query)
+            return ["456"]
+
+    query_plan = {
+        "queries": [
+            {"query_id": "q_1", "query_hash": "1", "query": "retry me"},
+        ]
+    }
+    client = FakeClient()
+
+    results = run_pubmed_searches(
+        query_plan,
+        client,
+        existing_results=[
+            {
+                "query_id": "q_1",
+                "query_hash": "1",
+                "pmids": [],
+                "status": "failed",
+                "error": "previous 502",
+            }
+        ],
+        log=False,
+    )
+
+    assert client.calls == ["retry me"]
+    assert results == [{"query_id": "q_1", "query_hash": "1", "pmids": ["456"], "status": "completed"}]
 
 
 def test_pubmed_search_progress_logs_eta(capsys: pytest.CaptureFixture[str]) -> None:

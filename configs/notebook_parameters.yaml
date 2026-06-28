@@ -1,0 +1,35 @@
+phase1_species_synonyms:
+  config_path: configs/species_sources.yaml
+  force_refresh: false
+  resume: true
+  run_phase: false
+  enrich_taxonomy_hierarchy: true
+phase2_query_plan:
+  template_config_path: configs/pubmed_query_templates.yaml
+  filter_config_path: configs/abstract_filters.yaml
+  preview_rows: 20
+phase2_pmid_acquisition:
+  template_config_path: configs/pubmed_query_templates.yaml
+  filter_config_path: configs/abstract_filters.yaml
+  force_refresh: false
+  run_pubmed_search: true
+  log_every: 100
+phase2_abstract_fetch:
+  template_config_path: configs/pubmed_query_templates.yaml
+  filter_config_path: configs/abstract_filters.yaml
+  force_refresh: false
+  run_abstract_fetch: false
+  log_every: 10
+phase2_table_stats:
+  template_config_path: configs/pubmed_query_templates.yaml
+  preview_rows: 10
+phase3_llm_extraction_vectorisation:
+  run_phase: false
+  pipeline_module: pathogen_atlas_v2.pipelines.03_run_llm_extraction
+  openai_model: gpt-5-nano
+phase4_table_creation:
+  run_phase: false
+  pipeline_module: pathogen_atlas_v2.pipelines.04_build_tables
+phase5_plot_creation:
+  run_phase: false
+  pipeline_module: pathogen_atlas_v2.pipelines.05_make_plots

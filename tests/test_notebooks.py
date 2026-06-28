@@ -11,6 +11,7 @@ from pathogen_atlas_v2 import notebook_utils as nbutils
 
 
 EXPECTED_NOTEBOOKS = [
+    "00_configure_pipeline.ipynb",
     "01_species_synonyms.ipynb",
     "02_1_pubmed_query_plan.ipynb",
     "02_2_pubmed_acquire_pmids.ipynb",
@@ -50,9 +51,10 @@ def test_phase2_query_plan_notebook_inspects_queries() -> None:
 def test_phase1_notebook_shows_live_progress_controls() -> None:
     nb = nbformat.read("notebooks/01_species_synonyms.ipynb", as_version=4)
     source = "\n".join(cell.source for cell in nb.cells if cell.cell_type == "code")
-    assert "FORCE_REFRESH = False" in source
-    assert "RESUME = True" in source
-    assert "ENRICH_TAXONOMY_HIERARCHY =" in source
+    assert "notebook_phase_parameters(\"phase1_species_synonyms\"" in source
+    assert "FORCE_REFRESH = bool(PARAMS[\"force_refresh\"])" in source
+    assert "RESUME = bool(PARAMS[\"resume\"])" in source
+    assert "ENRICH_TAXONOMY_HIERARCHY = PARAMS.get(\"enrich_taxonomy_hierarchy\")" in source
     assert "phase1_progress_status" in source
     assert "enrich_taxonomy_hierarchy=ENRICH_TAXONOMY_HIERARCHY" in source
 
@@ -62,13 +64,33 @@ def test_phase2_acquisition_notebooks_default_to_not_running_network() -> None:
     abstract_nb = nbformat.read("notebooks/02_3_pubmed_acquire_abstracts.ipynb", as_version=4)
     pmid_source = "\n".join(cell.source for cell in pmid_nb.cells if cell.cell_type == "code")
     abstract_source = "\n".join(cell.source for cell in abstract_nb.cells if cell.cell_type == "code")
-    assert "RUN_PUBMED_SEARCH = False" in pmid_source
-    assert "FORCE_REFRESH = False" in pmid_source
-    assert "LOG_EVERY = 100" in pmid_source
+    assert "notebook_phase_parameters(\"phase2_pmid_acquisition\"" in pmid_source
+    assert "RUN_PUBMED_SEARCH = bool(PARAMS[\"run_pubmed_search\"])" in pmid_source
+    assert "FORCE_REFRESH = bool(PARAMS[\"force_refresh\"])" in pmid_source
+    assert "LOG_EVERY = int(PARAMS[\"log_every\"])" in pmid_source
     assert "phase2_pmid_acquisition_preflight" in pmid_source
     assert "run_phase_2_pmid_acquisition" in pmid_source
-    assert "RUN_ABSTRACT_FETCH = False" in abstract_source
+    assert "notebook_phase_parameters(\"phase2_abstract_fetch\"" in abstract_source
+    assert "RUN_ABSTRACT_FETCH = bool(PARAMS[\"run_abstract_fetch\"])" in abstract_source
     assert "run_phase_2_abstract_fetch" in abstract_source
+
+
+def test_configure_pipeline_notebook_saves_yaml_parameters() -> None:
+    nb = nbformat.read("notebooks/00_configure_pipeline.ipynb", as_version=4)
+    source = "\n".join(cell.source for cell in nb.cells if cell.cell_type == "code")
+    assert "NOTEBOOK_CONFIG_PATH = \"configs/notebook_parameters.yaml\"" in source
+    assert "save_notebook_parameters" in source
+    assert "phase1_species_synonyms" in source
+    assert "phase2_pmid_acquisition" in source
+    assert "\"openai_model\": \"gpt-5-nano\"" in source
+
+
+def test_phase3_notebook_exposes_openai_model_parameter() -> None:
+    nb = nbformat.read("notebooks/03_llm_extraction_vectorisation.ipynb", as_version=4)
+    source = "\n".join(cell.source for cell in nb.cells if cell.cell_type == "code")
+    assert "notebook_phase_parameters(\"phase3_llm_extraction_vectorisation\"" in source
+    assert "OPENAI_MODEL = PARAMS[\"openai_model\"]" in source
+    assert nbutils.DEFAULT_NOTEBOOK_PARAMETERS["phase3_llm_extraction_vectorisation"]["openai_model"] == "gpt-5-nano"
 
 
 def test_phase_notebooks_remain_thin() -> None:
