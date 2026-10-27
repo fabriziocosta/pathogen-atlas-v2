@@ -75,7 +75,12 @@ def test_phase2_acquisition_notebooks_default_to_not_running_network() -> None:
     assert "run_phase_2_pmid_acquisition" in pmid_source
     assert "notebook_phase_parameters(\"phase2_abstract_fetch\"" in abstract_source
     assert "RUN_ABSTRACT_FETCH = bool(PARAMS[\"run_abstract_fetch\"])" in abstract_source
-    assert "run_phase_2_abstract_fetch" in abstract_source
+    assert "prepare_phase2_search_results" in abstract_source
+    assert "selected_pmids_from_search_results" in abstract_source
+    assert "run_pubmed_fetches(" in abstract_source
+    assert "max_pmids=max_pmids" in abstract_source
+    assert "raw_article_records_already_appended=True" in abstract_source
+    assert "fetch_preflight" in abstract_source
 
 
 def test_configure_pipeline_notebook_saves_yaml_parameters() -> None:

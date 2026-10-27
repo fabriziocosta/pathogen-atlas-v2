@@ -15,10 +15,13 @@ source:
   ncbi_config_path: configs/local/ncbi_entrez.yaml
   rate_limit_without_api_key_per_second: 3
   rate_limit_with_api_key_per_second: 10
-  request_delay_seconds: 0.34
+  # Null uses the configured NCBI rate limit for keyed vs unkeyed access.
+  request_delay_seconds: null
   max_retries: 5
   retmax: 10000
   fetch_batch_size: 200
+  # Maximum PMIDs fetched per notebook run. Set null to fetch the full pending set.
+  max_pmids_per_fetch_run: 25
   max_pmids_per_canonical_species: 200
   oldest_pmids_per_canonical_species: 30
   pmid_sample_random_seed: 42

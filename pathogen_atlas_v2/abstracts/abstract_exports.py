@@ -12,7 +12,7 @@ import pandas as pd
 
 from pathogen_atlas_v2.abstracts.article_records import build_articles_dataframe
 from pathogen_atlas_v2.abstracts.filter_matches import build_filter_match_rows
-from pathogen_atlas_v2.abstracts.pubmed_client import PubMedEntrezClient, load_ncbi_entrez_config
+from pathogen_atlas_v2.abstracts.pubmed_client import PubMedClientError, PubMedEntrezClient, load_ncbi_entrez_config
 from pathogen_atlas_v2.abstracts.pubmed_query_plan import (
     load_pubmed_query_plan,
     materialize_pubmed_query_plan,
@@ -65,14 +65,19 @@ def _is_successful_search_result(record: dict[str, Any]) -> bool:
     return record.get("status", "completed") == "completed"
 
 
-def _build_pubmed_client(config: dict[str, Any]) -> PubMedEntrezClient:
+def build_pubmed_client(config: dict[str, Any]) -> PubMedEntrezClient:
     """Build a configured PubMed client."""
     ncbi_config = load_ncbi_entrez_config(config["source"]["ncbi_config_path"])
+    source = config["source"]
+    delay = source.get("request_delay_seconds")
+    if delay is None:
+        rate_key = "rate_limit_with_api_key_per_second" if ncbi_config.api_key else "rate_limit_without_api_key_per_second"
+        delay = 1 / float(source[rate_key])
     return PubMedEntrezClient(
         config=ncbi_config,
-        request_delay_seconds=float(config["source"]["request_delay_seconds"]),
-        max_retries=int(config["source"]["max_retries"]),
-        retmax=int(config["source"]["retmax"]),
+        request_delay_seconds=float(delay),
+        max_retries=int(source["max_retries"]),
+        retmax=int(source["retmax"]),
     )
 
 
@@ -298,6 +303,7 @@ def run_pubmed_fetches(
     existing_records: list[dict[str, Any]] | None = None,
     output_path: str | Path | None = None,
     batch_size: int = 200,
+    max_pmids: int | None = None,
     log: bool = True,
     log_every: int = 10,
 ) -> list[dict[str, Any]]:
@@ -306,12 +312,13 @@ def run_pubmed_fetches(
     target_pmids = selected_pmids_from_search_results(search_results)
     fetched_pmids = pmids_from_article_records(article_records)
     pending_pmids = [pmid for pmid in target_pmids if pmid not in fetched_pmids]
+    scheduled_pmids = pending_pmids if max_pmids is None else pending_pmids[:max_pmids]
     total = len(target_pmids)
     fetched_target_count = len(set(target_pmids) & fetched_pmids)
-    _log(f"Abstract fetch: {fetched_target_count}/{total} PMIDs already fetched; {len(pending_pmids)} remaining.", log)
-    if not pending_pmids:
+    _log(f"Abstract fetch: {fetched_target_count}/{total} PMIDs already fetched; {len(pending_pmids)} remaining; {len(scheduled_pmids)} scheduled this run.", log)
+    if not scheduled_pmids:
         return article_records
-    batches = [pending_pmids[index : index + batch_size] for index in range(0, len(pending_pmids), batch_size)]
+    batches = [scheduled_pmids[index : index + batch_size] for index in range(0, len(scheduled_pmids), batch_size)]
     for batch_index, batch_pmids in enumerate(batches, start=1):
         batch_records = client.fetch_medline_records(batch_pmids)
         new_records = [record for record in batch_records if str(record.get("PMID")) not in fetched_pmids]
@@ -396,7 +403,7 @@ def run_phase2_pmid_acquisition(
         if paths["raw_search_results_path"].exists()
         else []
     )
-    client = _build_pubmed_client(config)
+    client = build_pubmed_client(config)
     search_results = run_pubmed_searches(
         query_plan,
         client,
@@ -440,22 +447,31 @@ def run_phase2_abstract_fetch(
         raise PubMedClientError("Missing PubMed search results. Run the PMID acquisition notebook first.")
     search_results = _read_jsonl_resume_records(paths["raw_search_results_path"], log=log)
     search_results, _, _ = prepare_phase2_search_results(query_plan, search_results, template_config_path)
-    write_jsonl(paths["raw_search_results_path"], search_results)
 
     if force_refresh and paths["raw_article_records_path"].exists():
         paths["raw_article_records_path"].unlink()
-    existing_records = read_jsonl(paths["raw_article_records_path"]) if paths["raw_article_records_path"].exists() else []
-    client = _build_pubmed_client(config)
+    existing_records = _read_jsonl_resume_records(paths["raw_article_records_path"], log=log) if paths["raw_article_records_path"].exists() else []
+    client = build_pubmed_client(config)
+    max_pmids = config["source"].get("max_pmids_per_fetch_run", 25)
     article_records = run_pubmed_fetches(
         search_results,
         client,
         existing_records=existing_records,
         output_path=paths["raw_article_records_path"],
         batch_size=int(config["source"].get("fetch_batch_size", 200)),
+        max_pmids=int(max_pmids) if max_pmids is not None else None,
         log=log,
         log_every=log_every,
     )
-    return write_phase2_outputs(query_plan, search_results, article_records, template_config_path, filter_config_path)
+    return write_phase2_outputs(
+        query_plan,
+        search_results,
+        article_records,
+        template_config_path,
+        filter_config_path,
+        raw_article_records_already_appended=True,
+        raw_search_results_already_saved=True,
+    )
 
 
 def write_phase2_outputs(
@@ -464,12 +480,15 @@ def write_phase2_outputs(
     article_records: list[dict[str, Any]],
     template_config_path: str | Path = "configs/pubmed_query_templates.yaml",
     filter_config_path: str | Path = "configs/abstract_filters.yaml",
+    raw_article_records_already_appended: bool = False,
+    raw_search_results_already_saved: bool = False,
 ) -> dict[str, Any]:
     """Write Phase 2 raw, filtered, release, and metadata outputs."""
     config = load_pubmed_query_template_config(template_config_path)
     paths = _output_paths(config)
 
-    write_jsonl(paths["raw_article_records_path"], article_records)
+    if not raw_article_records_already_appended:
+        write_jsonl(paths["raw_article_records_path"], article_records)
 
     source = config["source"]
     search_results, canonical_pmid_df, sampled_canonical_pmid_df = prepare_phase2_search_results(
@@ -477,7 +496,8 @@ def write_phase2_outputs(
         search_results,
         template_config_path,
     )
-    write_jsonl(paths["raw_search_results_path"], search_results)
+    if not raw_search_results_already_saved:
+        write_jsonl(paths["raw_search_results_path"], search_results)
 
     articles_df = build_articles_dataframe(article_records)
     species_matches_df = build_species_match_rows(search_results, query_plan)
@@ -545,7 +565,7 @@ def run_phase2(
     if paths["raw_search_results_path"].exists() and not force_refresh:
         search_results = read_jsonl(paths["raw_search_results_path"])
     else:
-        client = _build_pubmed_client(config)
+        client = build_pubmed_client(config)
         search_results = run_pubmed_searches(query_plan, client, output_path=paths["raw_search_results_path"])
 
     search_results, _, _ = prepare_phase2_search_results(query_plan, search_results, template_config_path)
@@ -553,12 +573,18 @@ def run_phase2(
     if paths["raw_article_records_path"].exists() and not force_refresh:
         article_records = read_jsonl(paths["raw_article_records_path"])
     else:
-        client = _build_pubmed_client(config)
+        client = build_pubmed_client(config)
         article_records = run_pubmed_fetches(
             search_results,
             client,
             output_path=paths["raw_article_records_path"],
             batch_size=int(config["source"].get("fetch_batch_size", 200)),
+            max_pmids=(int(config["source"]["max_pmids_per_fetch_run"])
+                       if config["source"].get("max_pmids_per_fetch_run") is not None else None),
         )
 
-    return write_phase2_outputs(query_plan, search_results, article_records, template_config_path, filter_config_path)
+    return write_phase2_outputs(
+        query_plan, search_results, article_records, template_config_path, filter_config_path,
+        raw_article_records_already_appended=paths["raw_article_records_path"].exists() and not force_refresh,
+        raw_search_results_already_saved=True,
+    )

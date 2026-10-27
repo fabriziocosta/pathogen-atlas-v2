@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,8 +43,26 @@ def load_ncbi_entrez_config(path: str | Path) -> NcbiEntrezConfig:
     email = ncbi.get("email")
     if not email:
         raise PubMedClientError(f"NCBI config {path} must define ncbi.email.")
-    api_key = ncbi.get("api_key") or None
+    api_key = ncbi.get("api_key") or os.getenv("NCBI_API_KEY") or os.getenv("EUTILS_API_KEY") or _ncbi_key_from_keychain()
     return NcbiEntrezConfig(email=str(email), api_key=str(api_key) if api_key else None, tool=str(ncbi.get("tool", "pathogen-atlas-v2")))
+
+
+def _ncbi_key_from_keychain() -> str | None:
+    """Read the optional NCBI E-utilities key using AMR's macOS Keychain item."""
+    if sys.platform != "darwin" or shutil.which("security") is None:
+        return None
+    try:
+        result = subprocess.run(
+            ["security", "find-generic-password", "-s", "NCBI", "-a", "NCBI_API_KEY", "-w"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    key = result.stdout.strip()
+    return key if result.returncode == 0 and key else None
 
 
 class PubMedEntrezClient:
@@ -53,8 +75,7 @@ class PubMedEntrezClient:
         self.retmax = retmax
         Entrez.email = config.email
         Entrez.tool = config.tool
-        if config.api_key:
-            Entrez.api_key = config.api_key
+        Entrez.api_key = config.api_key or ""
 
     def _sleep(self) -> None:
         time.sleep(self.request_delay_seconds)

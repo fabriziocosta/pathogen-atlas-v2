@@ -12,6 +12,7 @@ from pathogen_atlas_v2.abstracts.abstract_exports import write_phase2_outputs
 from pathogen_atlas_v2.abstracts.abstract_exports import (
     _read_jsonl_resume_records,
     _write_jsonl_atomic,
+    build_pubmed_client,
     build_canonical_pmid_index,
     run_pubmed_fetches,
     run_pubmed_searches,
@@ -195,7 +196,10 @@ def test_pmid_acquisition_preflight_reports_resume_counts(tmp_path: Path) -> Non
     assert not bool(preflight.iloc[0]["ncbi_config_exists"])
 
 
-def test_ncbi_config_loader_validates_email(tmp_path: Path) -> None:
+def test_ncbi_config_loader_validates_email(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("pathogen_atlas_v2.abstracts.pubmed_client._ncbi_key_from_keychain", lambda: None)
+    monkeypatch.delenv("NCBI_API_KEY", raising=False)
+    monkeypatch.delenv("EUTILS_API_KEY", raising=False)
     config = tmp_path / "ncbi_entrez.yaml"
     config.write_text("ncbi:\n  email: test@example.org\n  api_key: ''\n  tool: pathogen-atlas-v2\n", encoding="utf-8")
     loaded = load_ncbi_entrez_config(config)
@@ -206,6 +210,27 @@ def test_ncbi_config_loader_validates_email(tmp_path: Path) -> None:
     missing_email.write_text("ncbi:\n  tool: pathogen-atlas-v2\n", encoding="utf-8")
     with pytest.raises(PubMedClientError, match="ncbi.email"):
         load_ncbi_entrez_config(missing_email)
+
+
+def test_pubmed_client_rate_uses_ncbi_configured_keyed_rate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config_path = tmp_path / "ncbi_entrez.yaml"
+    config_path.write_text("ncbi:\n  email: test@example.org\n  api_key: fixture-key\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    template = {
+        "source": {
+            "ncbi_config_path": str(config_path),
+            "request_delay_seconds": None,
+            "rate_limit_with_api_key_per_second": 10,
+            "rate_limit_without_api_key_per_second": 3,
+            "max_retries": 2,
+            "retmax": 100,
+        }
+    }
+
+    client = build_pubmed_client(template)
+
+    assert client.request_delay_seconds == pytest.approx(0.1)
+    assert client.config.api_key == "fixture-key"
 
 
 def test_pubmed_client_mocked_search_and_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -407,6 +432,27 @@ def test_pubmed_fetches_skip_existing_pmids() -> None:
     )
     assert client.calls == [["456", "789"]]
     assert {record["PMID"] for record in records} == {"123", "456", "789"}
+
+
+def test_pubmed_fetches_apply_per_run_cap_and_resume() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def fetch_medline_records(self, pmids: list[str]) -> list[dict]:
+            self.calls.append(pmids)
+            return [{"PMID": pmid} for pmid in pmids]
+
+    search_results = [{"query_id": "q_1", "sampled_pmids": ["123", "456", "789"]}]
+    client = FakeClient()
+    cached = [{"PMID": "123"}]
+    batch_one = run_pubmed_fetches(search_results, client, existing_records=cached, max_pmids=1, log=False)
+    assert client.calls == [["456"]]
+    assert {row["PMID"] for row in batch_one} == {"123", "456"}
+
+    batch_two = run_pubmed_fetches(search_results, client, existing_records=batch_one, max_pmids=1, log=False)
+    assert client.calls == [["456"], ["789"]]
+    assert {row["PMID"] for row in batch_two} == {"123", "456", "789"}
 
 
 def test_article_parser_species_matches_and_filter_matches() -> None:
