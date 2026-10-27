@@ -23,10 +23,23 @@ phase2_abstract_fetch:
 phase2_table_stats:
   template_config_path: configs/pubmed_query_templates.yaml
   preview_rows: 10
-phase3_llm_extraction_vectorisation:
+phase3_abstract_decisions:
   run_phase: false
-  pipeline_module: pathogen_atlas_v2.pipelines.03_run_llm_extraction
-  openai_model: gpt-5-nano
+  pipeline_module: pathogen_atlas_v2.pipelines.phase3_abstract_decisions
+  provider: openrouter_jev
+  model: typesafe/jev-1.14
+  question_key: human_pathogen_evidence
+  question_config_path: configs/llm_questions.yaml
+  pubmed_config_path: configs/pubmed_query_templates.yaml
+  run_id: jev-human-pathogen-evidence-v1
+  max_calls: 25
+  max_workers: 4
+  retries: 3
+  backoff_seconds: 1.0
+  timeout_seconds: 90.0
+  checkpoint_every: 25
+  decision_path: data/03_decisions/parsed/pathogen_evidence_jev.parquet
+  raw_response_path: data/03_decisions/raw_responses/jev/pathogen_evidence.jsonl
 phase4_table_creation:
   run_phase: false
   pipeline_module: pathogen_atlas_v2.pipelines.04_build_tables

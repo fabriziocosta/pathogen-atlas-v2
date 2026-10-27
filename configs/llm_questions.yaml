@@ -1,4 +1,23 @@
-# Placeholder for pathogen classification and microbiology questions.
+# Versioned questions used by abstract decision providers.
 questions:
-  pathogen_yes_no: []
+  human_pathogen_evidence:
+    id: human_pathogen_evidence
+    version: human-pathogen-disease-attribution-v1
+    type: noul
+    instructions: >-
+      Based only on `article.title` and `article.abstract`, does this article
+      provide evidence that the bacterial species named in `species.canonical_name`
+      or `species.names_in_query` caused or materially contributed to an infection
+      or disease in a human patient? Attribute the evidence to that species, not
+      merely to another organism or to the article's general topic.
+    criteria:
+      "true": >-
+        The title or abstract describes a human infection or disease and explicitly
+        links the named species, including a listed name or synonym, to causing or
+        materially contributing to it.
+      "false": >-
+        The article does not provide that human disease attribution. This includes
+        colonisation or carriage without disease, non-human-only disease, incidental
+        or unrelated mentions, evidence attributed to another species, and cases
+        where the title and abstract do not establish the link.
   microbiology: []

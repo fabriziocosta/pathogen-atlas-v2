@@ -6,7 +6,7 @@ The project is organised around five phases:
 
 1. Species synonym acquisition and normalisation.
 2. Abstract acquisition using word filters.
-3. LLM extraction and vectorisation.
+3. Abstract decision sources and vectorisation.
 4. Table creation.
 5. Plot creation.
 
@@ -73,3 +73,13 @@ known synonyms for that canonical species before collecting and sampling PMIDs.
 The notebook path is split into four steps: inspect queries, acquire all PMIDs,
 fetch selected abstracts, and inspect table stats. The PMID and abstract
 acquisition notebooks are resumable and skip work already written to disk.
+
+Phase 3 scores selected species–PMID abstract pairs with Jev System 1. Set
+`OPENROUTER_API_KEY`, review the question in `configs/llm_questions.yaml`, then
+open `notebooks/03_abstract_decisions.ipynb`. It defaults to a 25-call pilot;
+raise `max_calls` or set it to `null` in `configs/notebook_parameters.yaml` to
+allow the full pending run. Results are stored as raw responses under
+`data/03_decisions/raw_responses/jev/` and resumable parsed decisions under
+`data/03_decisions/parsed/`. The source records probabilities only; it does not
+apply a production threshold. The CLI entry point is `pathogen-atlas-phase3`;
+it only runs when `run_phase: true` is set in the shared Phase 3 parameters.

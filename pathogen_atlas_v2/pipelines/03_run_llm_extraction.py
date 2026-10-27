@@ -1,10 +1,6 @@
-"""Phase 3: run LLM extraction and vectorisation."""
+"""Compatibility entry point for the renamed Phase 3 decision pipeline."""
 
-
-def main() -> None:
-    """Run the LLM extraction pipeline."""
-    raise NotImplementedError("Phase 3 pipeline is not implemented yet.")
-
+from pathogen_atlas_v2.pipelines.phase3_abstract_decisions import main
 
 if __name__ == "__main__":
     main()

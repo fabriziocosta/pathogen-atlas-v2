@@ -66,10 +66,23 @@ DEFAULT_NOTEBOOK_PARAMETERS: dict[str, Any] = {
         "template_config_path": "configs/pubmed_query_templates.yaml",
         "preview_rows": 10,
     },
-    "phase3_llm_extraction_vectorisation": {
+    "phase3_abstract_decisions": {
         "run_phase": False,
-        "pipeline_module": "pathogen_atlas_v2.pipelines.03_run_llm_extraction",
-        "openai_model": "gpt-5-nano",
+        "pipeline_module": "pathogen_atlas_v2.pipelines.phase3_abstract_decisions",
+        "provider": "openrouter_jev",
+        "model": "typesafe/jev-1.14",
+        "question_key": "human_pathogen_evidence",
+        "question_config_path": "configs/llm_questions.yaml",
+        "pubmed_config_path": "configs/pubmed_query_templates.yaml",
+        "run_id": "jev-human-pathogen-evidence-v1",
+        "max_calls": 25,
+        "max_workers": 4,
+        "retries": 3,
+        "backoff_seconds": 1.0,
+        "timeout_seconds": 90.0,
+        "checkpoint_every": 25,
+        "decision_path": "data/03_decisions/parsed/pathogen_evidence_jev.parquet",
+        "raw_response_path": "data/03_decisions/raw_responses/jev/pathogen_evidence.jsonl",
     },
     "phase4_table_creation": {
         "run_phase": False,
@@ -321,9 +334,11 @@ def run_pipeline_module(module_name: str) -> dict[str, Any]:
     """Run a pipeline module's ``main`` function."""
     module = importlib.import_module(module_name)
     try:
-        module.main()
+        result = module.main()
     except NotImplementedError as exc:
         return {"status": "not_implemented", "reason": str(exc)}
+    if isinstance(result, dict):
+        return result
     return {"status": "completed", "module": module_name}
 
 

@@ -12,7 +12,7 @@ Notebook sequence:
 3. `02_2_pubmed_acquire_pmids.ipynb`
 4. `02_3_pubmed_acquire_abstracts.ipynb`
 5. `02_4_pubmed_table_stats.ipynb`
-6. `03_llm_extraction_vectorisation.ipynb`
+6. `03_abstract_decisions.ipynb`
 7. `04_table_creation.ipynb`
 8. `05_plot_creation.ipynb`
 

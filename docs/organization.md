@@ -150,9 +150,9 @@ ncbi:
   tool: "pathogen-atlas-v2"
 ```
 
-## Phase 3: LLM Extraction And Vectorisation
+## Phase 3: Abstract Decisions And Vectorisation
 
-Purpose: use LLMs to classify whether each species is a pathogen, answer structured microbiology questions, anonymise abstract text, and vectorise anonymised abstracts.
+Purpose: run versioned decision providers against selected PubMed abstracts for species-level pathogen evidence and structured microbiology questions. Anonymisation and vectorisation remain separate capabilities in this phase.
 
 Code lives in:
 
@@ -163,7 +163,7 @@ pathogen_atlas_v2/llm/
 Data lives in:
 
 ```text
-data/03_llm/
+data/03_decisions/
 ├── prompts/
 ├── raw_responses/
 ├── parsed/
@@ -175,15 +175,15 @@ data/03_llm/
 Expected release outputs:
 
 ```text
-data/03_llm/release/
+data/03_decisions/release/
 ├── pathogen_yes_no.parquet
 ├── microbiology_answers.parquet
 ├── anonymised_abstracts.parquet
 ├── abstract_vectors.parquet
-└── llm_run_metadata.json
+└── decision_run_metadata.json
 ```
 
-Raw responses and parsed responses are deliberately separate. If a parser changes, we should be able to rebuild parsed outputs without rerunning model calls. Prompts and question definitions should be versioned in `configs/llm_questions.yaml` and `configs/prompts/`.
+Raw provider responses and parsed decisions are deliberately separate. If response parsing changes, parsed outputs can be rebuilt without rerunning model calls. Questions should be versioned in `configs/llm_questions.yaml`; prompts for generative providers should be versioned in `configs/prompts/`. The first runnable source is Jev System 1 for abstract-level human pathogen evidence. It stores probabilities and does not apply a production threshold.
 
 ## Phase 4: Table Creation
 

@@ -50,6 +50,7 @@ all = [
 [project.scripts]
 pathogen-atlas-phase1 = "pathogen_atlas_v2.pipelines.phase1_species_synonyms:main"
 pathogen-atlas-phase2 = "pathogen_atlas_v2.pipelines.phase2_pubmed_abstracts:main"
+pathogen-atlas-phase3 = "pathogen_atlas_v2.pipelines.phase3_abstract_decisions:main"
 
 [tool.setuptools.packages.find]
 include = ["pathogen_atlas_v2*"]

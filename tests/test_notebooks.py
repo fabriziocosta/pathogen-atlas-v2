@@ -17,7 +17,7 @@ EXPECTED_NOTEBOOKS = [
     "02_2_pubmed_acquire_pmids.ipynb",
     "02_3_pubmed_acquire_abstracts.ipynb",
     "02_4_pubmed_table_stats.ipynb",
-    "03_llm_extraction_vectorisation.ipynb",
+    "03_abstract_decisions.ipynb",
     "04_table_creation.ipynb",
     "05_plot_creation.ipynb",
 ]
@@ -56,7 +56,10 @@ def test_phase1_notebook_shows_live_progress_controls() -> None:
     assert "RESUME = bool(PARAMS[\"resume\"])" in source
     assert "ENRICH_TAXONOMY_HIERARCHY = PARAMS.get(\"enrich_taxonomy_hierarchy\")" in source
     assert "phase1_progress_status" in source
-    assert "enrich_taxonomy_hierarchy=ENRICH_TAXONOMY_HIERARCHY" in source
+    assert "enrich_taxonomy_hierarchy=bool(ENRICH_TAXONOMY_HIERARCHY)" in source
+    assert "acquire_lpsn_species_records(" in source
+    assert "normalise_lpsn_records(" in source
+    assert "write_release_outputs(" in source
 
 
 def test_phase2_acquisition_notebooks_default_to_not_running_network() -> None:
@@ -82,15 +85,18 @@ def test_configure_pipeline_notebook_saves_yaml_parameters() -> None:
     assert "save_notebook_parameters" in source
     assert "phase1_species_synonyms" in source
     assert "phase2_pmid_acquisition" in source
-    assert "\"openai_model\": \"gpt-5-nano\"" in source
+    assert "\"provider\": \"openrouter_jev\"" in source
+    assert "\"model\": \"typesafe/jev-1.14\"" in source
 
 
-def test_phase3_notebook_exposes_openai_model_parameter() -> None:
-    nb = nbformat.read("notebooks/03_llm_extraction_vectorisation.ipynb", as_version=4)
+def test_phase3_notebook_exposes_provider_and_run_controls() -> None:
+    nb = nbformat.read("notebooks/03_abstract_decisions.ipynb", as_version=4)
     source = "\n".join(cell.source for cell in nb.cells if cell.cell_type == "code")
-    assert "notebook_phase_parameters(\"phase3_llm_extraction_vectorisation\"" in source
-    assert "OPENAI_MODEL = PARAMS[\"openai_model\"]" in source
-    assert nbutils.DEFAULT_NOTEBOOK_PARAMETERS["phase3_llm_extraction_vectorisation"]["openai_model"] == "gpt-5-nano"
+    assert "notebook_phase_parameters(\"phase3_abstract_decisions\"" in source
+    assert "phase3_preflight(PARAMS)" in source
+    assert "run_phase3(PARAMS" in source
+    assert nbutils.DEFAULT_NOTEBOOK_PARAMETERS["phase3_abstract_decisions"]["provider"] == "openrouter_jev"
+    assert nbutils.DEFAULT_NOTEBOOK_PARAMETERS["phase3_abstract_decisions"]["model"] == "typesafe/jev-1.14"
 
 
 def test_phase_notebooks_remain_thin() -> None:
