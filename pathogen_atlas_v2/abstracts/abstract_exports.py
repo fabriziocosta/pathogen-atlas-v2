@@ -319,6 +319,7 @@ def run_pubmed_fetches(
     if not scheduled_pmids:
         return article_records
     batches = [scheduled_pmids[index : index + batch_size] for index in range(0, len(scheduled_pmids), batch_size)]
+    started_at = time.monotonic()
     for batch_index, batch_pmids in enumerate(batches, start=1):
         batch_records = client.fetch_medline_records(batch_pmids)
         new_records = [record for record in batch_records if str(record.get("PMID")) not in fetched_pmids]
@@ -329,9 +330,15 @@ def run_pubmed_fetches(
                 _append_jsonl(output_path, record)
         if batch_index == 1 or batch_index == len(batches) or batch_index % log_every == 0:
             fetched_target_count = len(set(target_pmids) & fetched_pmids)
+            completed_this_run = min(batch_index * batch_size, len(scheduled_pmids))
+            remaining_this_run = len(scheduled_pmids) - completed_this_run
+            eta, eta_at = _progress_eta(started_at, completed_this_run, remaining_this_run)
+            eta_text = f" ETA {eta} (about {eta_at})." if eta != "unknown" else " ETA calculating."
             _log(
                 f"Abstract fetch: {fetched_target_count}/{total} PMIDs fetched; "
-                f"{max(total - fetched_target_count, 0)} remaining.",
+                f"{max(total - fetched_target_count, 0)} remaining; "
+                f"{completed_this_run}/{len(scheduled_pmids)} attempted this run."
+                f"{eta_text}",
                 log,
             )
     return article_records
