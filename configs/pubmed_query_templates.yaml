@@ -21,7 +21,7 @@ source:
   retmax: 10000
   fetch_batch_size: 200
   # Maximum PMIDs fetched per notebook run. Set null to fetch the full pending set.
-  max_pmids_per_fetch_run: 25
+  max_pmids_per_fetch_run: null
   max_pmids_per_canonical_species: 200
   oldest_pmids_per_canonical_species: 30
   pmid_sample_random_seed: 42
