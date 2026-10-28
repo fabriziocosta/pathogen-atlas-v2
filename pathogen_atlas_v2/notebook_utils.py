@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import textwrap
 from numbers import Number
 from pathlib import Path
@@ -17,7 +18,7 @@ from pathogen_atlas_v2.abstracts.abstract_exports import (
     run_phase2_abstract_fetch,
     run_phase2_pmid_acquisition,
 )
-from pathogen_atlas_v2.abstracts.pubmed_client import PubMedClientError
+from pathogen_atlas_v2.abstracts.pubmed_client import PubMedClientError, load_ncbi_entrez_config
 from pathogen_atlas_v2.abstracts.pubmed_query_plan import (
     PubMedQueryPlanError,
     render_query_records,
@@ -432,11 +433,27 @@ def phase2_pmid_acquisition_preflight(
         existing_results = _read_jsonl_resume_records(paths["raw_search_results_path"], log=False)
     completed = len({record.get("query_id") for record in existing_results if record.get("query_id")})
     pending = query_count if force_refresh else max(query_count - completed, 0)
-    request_delay = float(source.get("request_delay_seconds", 0))
-    lower_bound_seconds = pending * request_delay
     ncbi_config_path = resolve_path(source["ncbi_config_path"])
     ncbi_config = load_yaml(ncbi_config_path) if ncbi_config_path.exists() else {}
     ncbi = ncbi_config.get("ncbi", {}) if isinstance(ncbi_config, dict) else {}
+    api_key_configured = bool(
+        ncbi.get("api_key") or os.getenv("NCBI_API_KEY") or os.getenv("EUTILS_API_KEY")
+    )
+    if ncbi_config_path.exists():
+        try:
+            api_key_configured = bool(load_ncbi_entrez_config(ncbi_config_path).api_key)
+        except PubMedClientError:
+            # Keep preflight useful for incomplete local config files; actual runs
+            # will report the configuration error when they construct the client.
+            pass
+    configured_delay = source.get("request_delay_seconds")
+    if configured_delay is None:
+        rate_key = "rate_limit_with_api_key_per_second" if api_key_configured else "rate_limit_without_api_key_per_second"
+        requests_per_second = float(source.get(rate_key, 0) or 0)
+        request_delay = 1 / requests_per_second if requests_per_second > 0 else 0.0
+    else:
+        request_delay = float(configured_delay)
+    lower_bound_seconds = pending * request_delay
     return pd.DataFrame(
         [
             {
@@ -450,7 +467,7 @@ def phase2_pmid_acquisition_preflight(
                 "raw_search_results_path": str(paths["raw_search_results_path"]),
                 "ncbi_config_exists": ncbi_config_path.exists(),
                 "ncbi_email": ncbi.get("email", ""),
-                "ncbi_api_key_configured": bool(ncbi.get("api_key")),
+                "ncbi_api_key_configured": api_key_configured,
             }
         ]
     )
