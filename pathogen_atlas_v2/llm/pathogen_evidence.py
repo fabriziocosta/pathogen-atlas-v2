@@ -211,6 +211,22 @@ def _write_decisions(path: Path, decisions: pd.DataFrame) -> None:
     temporary.replace(path)
 
 
+def apply_confidence_threshold(decisions: pd.DataFrame, threshold: float = 0.75) -> pd.DataFrame:
+    """Add a nullable acceptance flag for completed decisions at the given p_yes threshold."""
+    threshold = float(threshold)
+    if not 0 <= threshold <= 1:
+        raise ValueError(f"Confidence threshold must be between 0 and 1; got {threshold}.")
+    result = decisions.copy()
+    probabilities = pd.to_numeric(result.get("p_yes", pd.Series(index=result.index, dtype=float)), errors="coerce")
+    completed = result.get("status", pd.Series(index=result.index, dtype=object)).eq(SUCCESS_STATUS)
+    scored = completed & probabilities.notna()
+    accepted = pd.Series(pd.NA, index=result.index, dtype="boolean")
+    accepted.loc[scored] = probabilities.loc[scored].ge(threshold)
+    result["confidence_threshold"] = threshold
+    result["accepted"] = accepted
+    return result
+
+
 def _append_raw_response(path: Path, record: dict[str, Any]) -> None:
     ensure_parent(path)
     with path.open("a", encoding="utf-8") as handle:
@@ -602,6 +618,7 @@ def phase3_preflight(config: dict[str, Any] | None = None) -> dict[str, Any]:
 __all__ = [
     "DECISION_COLUMNS",
     "PathogenEvidenceError",
+    "apply_confidence_threshold",
     "load_pathogen_evidence_question",
     "phase3_preflight",
     "prepare_pathogen_evidence_inputs",
