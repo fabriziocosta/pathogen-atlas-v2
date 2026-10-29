@@ -1,2 +1,26 @@
-# Placeholder for plot specifications.
-plots: []
+# Reproducible Phase 5 figures generated from Phase 4 Parquet releases.
+plots:
+  - id: species_evidence_counts
+    input: species_summary.parquet
+    output: species_evidence_counts.png
+    description: Species ranked by accepted human disease evidence abstracts.
+  - id: emergence_timeline
+    input: emergence.parquet
+    output: emergence_timeline.png
+    description: First accepted evidence year compared with year reaching the publication target.
+  - id: feature_prevalence
+    input: species_feature_summary.parquet
+    output: feature_prevalence.png
+    description: Prevalence of domain expert concepts among scored abstracts.
+  - id: annual_evidence_counts
+    input: evidence_records.parquet
+    output: annual_evidence_counts.png
+    description: Unique accepted PMIDs by publication year.
+  - id: taxonomy_composition
+    input: species_summary.parquet
+    output: taxonomy_composition.png
+    description: Evidence-bearing species by a selected taxonomic rank.
+  - id: species_feature_space
+    input: species_feature_matrix.parquet
+    output: species_feature_space.png
+    description: Two-axis projection of species-level domain-question profiles.

@@ -51,6 +51,8 @@ all = [
 pathogen-atlas-phase1 = "pathogen_atlas_v2.pipelines.phase1_species_synonyms:main"
 pathogen-atlas-phase2 = "pathogen_atlas_v2.pipelines.phase2_pubmed_abstracts:main"
 pathogen-atlas-phase3 = "pathogen_atlas_v2.pipelines.phase3_abstract_decisions:main"
+pathogen-atlas-phase4 = "pathogen_atlas_v2.pipelines.04_build_tables:main"
+pathogen-atlas-phase5 = "pathogen_atlas_v2.pipelines.05_make_plots:main"
 
 [tool.setuptools.packages.find]
 include = ["pathogen_atlas_v2*"]

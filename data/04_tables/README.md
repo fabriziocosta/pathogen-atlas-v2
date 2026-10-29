@@ -1,3 +1,15 @@
 # Phase 4: Tables
 
-Interim and release analytical tables.
+`release/` contains stable Parquet tables built from Phase 1 taxonomy, Phase 2 PubMed search and abstract outputs, and Phase 3 Jev decisions. Rebuilding Phase 4 performs no PubMed or model requests.
+
+The release includes:
+
+- `evidence_records.parquet`: accepted species–PMID evidence with article metadata and gate probability.
+- `species_summary.parquet`: full PubMed article counts, accepted evidence counts, first evidence year, and taxonomy fields. Full counts come from the unsampled Phase 2 PMID index, while evidence counts are bounded by the abstracts actually fetched and scored.
+- `domain_expert_answers.parquet`: current gate-passing species–abstract pairs with question probabilities and threshold-derived yes/no answers.
+- `species_feature_summary.parquet`: per-species, per-question yes counts and prevalence from the V1 73-question set.
+- `species_feature_matrix.parquet`: wide species-by-question prevalence matrix for plotting and further analysis.
+- `abstract_counts.parquet`: yearly unique PMID counts per species for accepted evidence.
+- `web_exports/*.csv`: CSV versions of every release table.
+- `emergence.parquet`: V1-style first-evidence year, year of reaching the publication target, time to that target, and evidence count in the initial year window. Defaults match the V1 selection logic (more than 10 evidence abstracts and fewer than 30,000 PubMed articles).
+- `table_creation_metadata.json`: input paths, thresholds, run IDs, and row counts.
