@@ -29,6 +29,8 @@ class DecisionClient(Protocol):
 
     def decide(self, state: dict[str, Any], *, question_id: str, question: dict[str, Any]) -> dict[str, Any]: ...
 
+    def decide_many(self, state: dict[str, Any], *, questions: dict[str, dict[str, Any]]) -> dict[str, Any]: ...
+
 
 class OpenRouterJevClient:
     """Small HTTP client for OpenRouter's typed Decisions API."""
@@ -75,6 +77,17 @@ class OpenRouterJevClient:
         question: dict[str, Any],
     ) -> dict[str, Any]:
         """Submit one typed question and return the raw JSON response."""
+        return self.decide_many(state, questions={question_id: question})
+
+    def decide_many(
+        self,
+        state: dict[str, Any],
+        *,
+        questions: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Submit multiple typed questions about the same state in one request."""
+        if not questions:
+            raise ValueError("At least one Jev question is required.")
         payload = {
             "model": self.model,
             "state": state,
@@ -84,6 +97,7 @@ class OpenRouterJevClient:
                     "instructions": question["instructions"],
                     "criteria": question.get("criteria", {}),
                 }
+                for question_id, question in questions.items()
             },
         }
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}

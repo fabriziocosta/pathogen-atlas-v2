@@ -34,6 +34,13 @@ phase3_abstract_decisions:
   run_id: jev-human-pathogen-evidence-v1
   max_calls: 25
   confidence_threshold: 0.75
+  expert_question_config_path: configs/domain_expert_questions.yaml
+  expert_run_id: jev-domain-expert-features-v1
+  # One API request asks all 73 questions for one passing species–abstract pair.
+  # Set null to process every currently passing pair in one notebook run.
+  expert_max_calls: 25
+  expert_checkpoint_every: 25
+  question_confidence_threshold: 0.75
   max_workers: 4
   retries: 3
   backoff_seconds: 1.0
@@ -41,6 +48,9 @@ phase3_abstract_decisions:
   checkpoint_every: 25
   decision_path: data/03_decisions/parsed/pathogen_evidence_jev.parquet
   accepted_decisions_path: data/03_decisions/parsed/pathogen_evidence_jev_accepted.parquet
+  expert_decision_path: data/03_decisions/parsed/domain_expert_probabilities.parquet
+  expert_answers_path: data/03_decisions/parsed/domain_expert_answers.parquet
+  expert_raw_response_path: data/03_decisions/raw_responses/jev/domain_expert_questions.jsonl
   raw_response_path: data/03_decisions/raw_responses/jev/pathogen_evidence.jsonl
 phase4_table_creation:
   run_phase: false
