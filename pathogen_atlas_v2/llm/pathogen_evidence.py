@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,6 +21,7 @@ from pathogen_atlas_v2.llm.jev import (
     build_pathogen_evidence_state,
     extract_noul_probability,
 )
+from pathogen_atlas_v2.llm.progress import format_eta
 
 
 QUESTION_CONFIG_PATH = "configs/llm_questions.yaml"
@@ -434,6 +436,8 @@ def run_pathogen_evidence(
     futures: dict[Future, dict[str, Any]] = {}
     completed_since_checkpoint = 0
     if pending:
+        started_at = time.monotonic()
+        completed_requests = 0
         with ThreadPoolExecutor(max_workers=workers) as pool:
             for row in pending:
                 futures[pool.submit(
@@ -476,12 +480,23 @@ def run_pathogen_evidence(
                     if raw_record is not None:
                         _append_raw_response(raw_path, raw_record)
                     new_records.append(record)
+                    completed_requests += 1
                     completed_since_checkpoint += 1
                     if completed_since_checkpoint >= checkpoint_every:
                         ledger = _merge_records(ledger, new_records)
                         _write_decisions(output_path, ledger)
                         new_records = []
                         completed_since_checkpoint = 0
+                    if log and (
+                        completed_requests == 1
+                        or completed_requests % checkpoint_every == 0
+                        or completed_requests == len(pending)
+                    ):
+                        print(
+                            f"Jev pathogen evidence: {completed_requests}/{len(pending)} requests complete; "
+                            f"{format_eta(started_at, completed_requests, len(pending))}",
+                            flush=True,
+                        )
 
     if new_records:
         ledger = _merge_records(ledger, new_records)

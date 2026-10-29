@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +24,7 @@ from pathogen_atlas_v2.llm.pathogen_evidence import (
     SUCCESS_STATUS,
     prepare_pathogen_evidence_inputs,
 )
+from pathogen_atlas_v2.llm.progress import format_eta
 
 
 DEFAULT_QUESTION_SET_PATH = "configs/domain_expert_questions.yaml"
@@ -345,6 +347,7 @@ def run_domain_expert_questions(
     additions: list[dict[str, Any]] = []
     futures: dict[Future, dict[str, Any]] = {}
     if scheduled:
+        started_at = time.monotonic()
         with ThreadPoolExecutor(max_workers=workers) as pool:
             for row in scheduled:
                 futures[pool.submit(
@@ -372,7 +375,14 @@ def run_domain_expert_questions(
                         _write_ledger(probability_path, ledger)
                         additions = []
                     if log and (finished_pairs == 1 or finished_pairs % checkpoint_every == 0 or finished_pairs == len(scheduled)):
-                        print(f"Jev domain questions: {finished_pairs}/{len(scheduled)} abstract requests complete.", flush=True)
+                        finished_answers = finished_pairs * len(questions)
+                        total_answers = len(scheduled) * len(questions)
+                        print(
+                            f"Jev domain questions: {finished_pairs}/{len(scheduled)} abstract requests complete; "
+                            f"{finished_answers}/{total_answers} question outcomes recorded. "
+                            f"{format_eta(started_at, finished_pairs, len(scheduled))}",
+                            flush=True,
+                        )
 
     if additions:
         ledger = _merge_expert_records(ledger, additions)
