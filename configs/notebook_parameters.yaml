@@ -18,8 +18,8 @@ phase2_abstract_fetch:
   template_config_path: configs/pubmed_query_templates.yaml
   filter_config_path: configs/abstract_filters.yaml
   force_refresh: false
-  run_abstract_fetch: false
-  log_every: 10
+  run_abstract_fetch: true
+  log_every: 50
 phase2_table_stats:
   template_config_path: configs/pubmed_query_templates.yaml
   preview_rows: 10
