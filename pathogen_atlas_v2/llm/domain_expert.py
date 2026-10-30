@@ -24,7 +24,7 @@ from pathogen_atlas_v2.llm.pathogen_evidence import (
     SUCCESS_STATUS,
     prepare_pathogen_evidence_inputs,
 )
-from pathogen_atlas_v2.llm.progress import format_eta
+from pathogen_atlas_v2.llm.progress import OpenRouterSpendTracker, format_eta
 
 
 DEFAULT_QUESTION_SET_PATH = "configs/domain_expert_questions.yaml"
@@ -295,10 +295,11 @@ def run_domain_expert_questions(
     probability_path = resolve_path(decision_path or settings.get("expert_decision_path", DEFAULT_PROBABILITY_PATH))
     raw_path = resolve_path(raw_response_path or settings.get("expert_raw_response_path", DEFAULT_RAW_RESPONSE_PATH))
     ledger = _read_ledger(probability_path)
-    workers = int(settings.get("max_workers", 4))
-    checkpoint_every = int(settings.get("expert_checkpoint_every", 25))
-    if workers < 1 or checkpoint_every < 1:
-        raise ValueError("max_workers and expert_checkpoint_every must be at least 1.")
+    workers = int(settings.get("max_workers", 128))
+    checkpoint_every = int(settings.get("expert_checkpoint_every", 100))
+    progress_every = int(settings.get("progress_every", 100))
+    if workers < 1 or checkpoint_every < 1 or progress_every < 1:
+        raise ValueError("max_workers, expert_checkpoint_every, and progress_every must be at least 1.")
 
     active_client = client
     active_model = active_client.model if active_client is not None else model
@@ -346,52 +347,107 @@ def run_domain_expert_questions(
 
     additions: list[dict[str, Any]] = []
     futures: dict[Future, dict[str, Any]] = {}
+    interrupted = False
+    spend_tracker = OpenRouterSpendTracker(active_client) if scheduled and active_client is not None else None
     if scheduled:
         started_at = time.monotonic()
+        scheduled_rows = iter(scheduled)
+        running: set[Future] = set()
+        finished_pairs = 0
+        last_progress_report = 0
+
+        def process_completed(future: Future) -> None:
+            nonlocal ledger, additions, finished_pairs, last_progress_report
+            row = futures[future]
+            records, raw = future.result()
+            if raw is not None:
+                _append_jsonl(raw_path, raw)
+            additions.extend(records)
+            if spend_tracker is not None:
+                pair_attempts = max((int(record.get("attempts") or 1) for record in records), default=1)
+                spend_tracker.add_attempts(pair_attempts)
+            finished_pairs += 1
+            if finished_pairs % checkpoint_every == 0:
+                ledger = _merge_expert_records(ledger, additions)
+                _write_ledger(probability_path, ledger)
+                additions = []
+            futures.pop(future, None)
+            if log and (
+                finished_pairs == 1
+                or finished_pairs - last_progress_report >= progress_every
+                or finished_pairs == len(scheduled)
+            ):
+                if spend_tracker is not None:
+                    spend_tracker.refresh()
+                finished_answers = finished_pairs * len(questions)
+                total_answers = len(scheduled) * len(questions)
+                balance_text = spend_tracker.describe(len(scheduled) - finished_pairs) if spend_tracker else "remaining credit unavailable"
+                last_progress_report = finished_pairs
+                print(
+                    f"Jev domain questions: {finished_pairs}/{len(scheduled)} abstract requests complete; "
+                    f"{finished_answers}/{total_answers} question outcomes recorded. "
+                    f"{format_eta(started_at, finished_pairs, len(scheduled))}; {balance_text}",
+                    flush=True,
+                )
+
+        def submit_next(pool: ThreadPoolExecutor) -> bool:
+            try:
+                row = next(scheduled_rows)
+            except StopIteration:
+                return False
+            future = pool.submit(
+                _pair_decision_rows,
+                row,
+                questions=questions,
+                question_set=question_set,
+                client=active_client,
+                gate_run_id=str(gate_run_id),
+                expert_run_id=str(expert_run_id),
+                raw_response_path=raw_path,
+            )
+            futures[future] = row
+            running.add(future)
+            return True
+
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            for row in scheduled:
-                futures[pool.submit(
-                    _pair_decision_rows,
-                    row,
-                    questions=questions,
-                    question_set=question_set,
-                    client=active_client,
-                    gate_run_id=str(gate_run_id),
-                    expert_run_id=str(expert_run_id),
-                    raw_response_path=raw_path,
-                )] = row
-            running = set(futures)
-            finished_pairs = 0
-            while running:
-                done, running = wait(running, return_when=FIRST_COMPLETED)
-                for future in done:
-                    records, raw = future.result()
-                    if raw is not None:
-                        _append_jsonl(raw_path, raw)
-                    additions.extend(records)
-                    finished_pairs += 1
-                    if finished_pairs % checkpoint_every == 0:
-                        ledger = _merge_expert_records(ledger, additions)
-                        _write_ledger(probability_path, ledger)
-                        additions = []
-                    if log and (finished_pairs == 1 or finished_pairs % checkpoint_every == 0 or finished_pairs == len(scheduled)):
-                        finished_answers = finished_pairs * len(questions)
-                        total_answers = len(scheduled) * len(questions)
-                        print(
-                            f"Jev domain questions: {finished_pairs}/{len(scheduled)} abstract requests complete; "
-                            f"{finished_answers}/{total_answers} question outcomes recorded. "
-                            f"{format_eta(started_at, finished_pairs, len(scheduled))}",
-                            flush=True,
-                        )
+            max_in_flight = max(1, workers * 2)
+            for _ in range(min(max_in_flight, len(scheduled))):
+                submit_next(pool)
+            try:
+                while running:
+                    done, running = wait(running, return_when=FIRST_COMPLETED)
+                    for future in done:
+                        process_completed(future)
+                        if len(running) < max_in_flight:
+                            submit_next(pool)
+            except KeyboardInterrupt:
+                interrupted = True
+                if log:
+                    print("Jev domain questions: stop requested; cancelling queued work and saving completed responses.", flush=True)
+                outstanding = list(futures)
+                for future in outstanding:
+                    future.cancel()
+                for future in outstanding:
+                    if future.cancelled():
+                        futures.pop(future, None)
+                    else:
+                        process_completed(future)
+                running.clear()
 
     if additions:
         ledger = _merge_expert_records(ledger, additions)
         _write_ledger(probability_path, ledger)
     elif not probability_path.exists():
         _write_ledger(probability_path, ledger)
+    if spend_tracker is not None:
+        spend_tracker.refresh()
+        if log:
+            print(f"Jev domain questions balance: {spend_tracker.describe(len(scheduled) - finished_pairs if scheduled else 0)}", flush=True)
 
     if rows.empty:
-        return pd.DataFrame(columns=PROBABILITY_COLUMNS)
+        empty = pd.DataFrame(columns=PROBABILITY_COLUMNS)
+        empty.attrs["interrupted"] = interrupted
+        return empty
     eligible_pairs = rows[["pmid", "canonical_species", "input_hash"]].drop_duplicates()
     current = ledger.loc[
         ledger["expert_run_id"].astype(str).eq(str(expert_run_id))
@@ -405,7 +461,9 @@ def run_domain_expert_questions(
         how="inner",
         validate="many_to_one",
     )
-    return current[PROBABILITY_COLUMNS].sort_values(["canonical_species", "pmid", "question_id"]).reset_index(drop=True)
+    current = current[PROBABILITY_COLUMNS].sort_values(["canonical_species", "pmid", "question_id"]).reset_index(drop=True)
+    current.attrs["interrupted"] = interrupted
+    return current
 
 
 def _merge_expert_records(existing: pd.DataFrame, records: list[dict[str, Any]]) -> pd.DataFrame:
@@ -512,7 +570,7 @@ def domain_expert_preflight(config: dict[str, Any] | None = None) -> dict[str, A
         )
         cached += key in successful
     pending = len(eligible) - cached
-    max_calls = settings.get("expert_max_calls", 25)
+    max_calls = settings.get("expert_max_calls")
     scheduled = pending if max_calls is None else min(pending, int(max_calls))
     return {
         "status": "ready",
@@ -550,12 +608,15 @@ def run_domain_expert_phase(config: dict[str, Any] | None = None, *, log: bool =
         gate_run_id=str(settings.get("run_id", "jev-human-pathogen-evidence-v1")),
         expert_run_id=str(settings.get("expert_run_id", "jev-domain-expert-features-v1")),
         gate_threshold=float(settings.get("confidence_threshold", 0.75)),
-        max_calls=settings.get("expert_max_calls", 25),
+        max_calls=settings.get("expert_max_calls"),
         log=log,
     )
     counts = results["status"].value_counts(dropna=False).to_dict() if not results.empty else {}
+    run_status = "interrupted" if results.attrs.get("interrupted", False) else (
+        "completed_with_failures" if counts.get("failed", 0) else "completed"
+    )
     return {
-        "status": "completed_with_failures" if counts.get("failed", 0) else "completed",
+        "status": run_status,
         "provider": "openrouter_jev",
         "model": str(settings.get("model", DEFAULT_JEV_MODEL)),
         "gate_threshold": float(settings.get("confidence_threshold", 0.75)),

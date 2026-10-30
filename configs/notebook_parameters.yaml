@@ -24,7 +24,7 @@ phase2_table_stats:
   template_config_path: configs/pubmed_query_templates.yaml
   preview_rows: 10
 phase3_abstract_decisions:
-  run_phase: false
+  run_phase: true
   pipeline_module: pathogen_atlas_v2.pipelines.phase3_abstract_decisions
   provider: openrouter_jev
   model: typesafe/jev-1.14
@@ -32,20 +32,19 @@ phase3_abstract_decisions:
   question_config_path: configs/llm_questions.yaml
   pubmed_config_path: configs/pubmed_query_templates.yaml
   run_id: jev-human-pathogen-evidence-v1
-  max_calls: 25
+  max_calls: null
   confidence_threshold: 0.75
   expert_question_config_path: configs/domain_expert_questions.yaml
   expert_run_id: jev-domain-expert-features-v1
-  # One API request asks all 73 questions for one passing species–abstract pair.
-  # Set null to process every currently passing pair in one notebook run.
-  expert_max_calls: 25
-  expert_checkpoint_every: 25
+  expert_max_calls: null
+  expert_checkpoint_every: 100
   question_confidence_threshold: 0.75
-  max_workers: 4
+  max_workers: 128
+  progress_every: 100
   retries: 3
   backoff_seconds: 1.0
   timeout_seconds: 90.0
-  checkpoint_every: 25
+  checkpoint_every: 100
   decision_path: data/03_decisions/parsed/pathogen_evidence_jev.parquet
   accepted_decisions_path: data/03_decisions/parsed/pathogen_evidence_jev_accepted.parquet
   expert_decision_path: data/03_decisions/parsed/domain_expert_probabilities.parquet
@@ -56,12 +55,12 @@ phase4_table_creation:
   run_phase: false
   pipeline_module: pathogen_atlas_v2.pipelines.04_build_tables
   pubmed_config_path: configs/pubmed_query_templates.yaml
+  canonical_pmid_index_path: data/02_abstracts/filtered/canonical_species_pmids.parquet
+  sampled_pmid_index_path: data/02_abstracts/filtered/canonical_species_pmids_sampled.parquet
   decision_path: data/03_decisions/parsed/pathogen_evidence_jev.parquet
   model: typesafe/jev-1.14
   question_key: human_pathogen_evidence
   question_config_path: configs/llm_questions.yaml
-  canonical_pmid_index_path: data/02_abstracts/filtered/canonical_species_pmids.parquet
-  sampled_pmid_index_path: data/02_abstracts/filtered/canonical_species_pmids_sampled.parquet
   run_id: jev-human-pathogen-evidence-v1
   expert_run_id: jev-domain-expert-features-v1
   confidence_threshold: 0.75

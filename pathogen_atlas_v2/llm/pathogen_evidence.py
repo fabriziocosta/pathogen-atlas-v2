@@ -21,7 +21,7 @@ from pathogen_atlas_v2.llm.jev import (
     build_pathogen_evidence_state,
     extract_noul_probability,
 )
-from pathogen_atlas_v2.llm.progress import format_eta
+from pathogen_atlas_v2.llm.progress import OpenRouterSpendTracker, format_eta
 
 
 QUESTION_CONFIG_PATH = "configs/llm_questions.yaml"
@@ -341,13 +341,14 @@ def run_pathogen_evidence(
     question_path = question_config_path or settings.get("question_config_path", QUESTION_CONFIG_PATH)
     question = load_pathogen_evidence_question(question_path, question_key)
     question_id = str(question["id"])
-    workers = int(settings.get("max_workers", 4))
+    workers = int(settings.get("max_workers", 128))
     retries = int(settings.get("retries", 3))
     backoff = float(settings.get("backoff_seconds", 1.0))
     timeout = float(settings.get("timeout_seconds", 90.0))
-    checkpoint_every = int(settings.get("checkpoint_every", 25))
-    if workers < 1 or checkpoint_every < 1:
-        raise ValueError("max_workers and checkpoint_every must be at least 1.")
+    checkpoint_every = int(settings.get("checkpoint_every", 100))
+    progress_every = int(settings.get("progress_every", 100))
+    if workers < 1 or checkpoint_every < 1 or progress_every < 1:
+        raise ValueError("max_workers, checkpoint_every, and progress_every must be at least 1.")
     if max_calls is None:
         max_calls = settings.get("max_calls")
     if max_calls is not None and int(max_calls) < 0:
@@ -435,79 +436,130 @@ def run_pathogen_evidence(
     ]
     futures: dict[Future, dict[str, Any]] = {}
     completed_since_checkpoint = 0
+    interrupted = False
+    spend_tracker = OpenRouterSpendTracker(active_client) if pending and active_client is not None else None
     if pending:
         started_at = time.monotonic()
         completed_requests = 0
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            for row in pending:
-                futures[pool.submit(
-                    _score_one,
-                    row,
-                    client=active_client,
-                    provider=active_provider,
-                    question=question,
-                    question_id=question_id,
-                    run_id=str(run_id),
-                    raw_response_path=raw_path,
-                )] = row
+        last_progress_report = 0
+        pending_rows = iter(pending)
+        running: set[Future] = set()
 
-            running = set(futures)
-            while running:
-                done, running = wait(running, return_when=FIRST_COMPLETED)
-                for future in done:
-                    row = futures[future]
-                    try:
-                        record, raw_record = future.result()
-                    except Exception as exc:
-                        record = {
-                            "pmid": row["pmid"],
-                            "canonical_species": row["canonical_species"],
-                            "matched_names": row["matched_names"],
-                            "input_hash": row["input_hash"],
-                            "provider": active_provider,
-                            "model": active_model,
-                            "question_id": question_id,
-                            "question_version": question["version"],
-                            "run_id": str(run_id),
-                            "p_yes": None,
-                            "status": "failed",
-                            "attempts": int(getattr(exc, "attempts", 1)),
-                            "error": f"{type(exc).__name__}: {exc}",
-                            "completed_at": None,
-                            "raw_response_path": str(raw_path),
-                        }
-                        raw_record = None
-                    if raw_record is not None:
-                        _append_raw_response(raw_path, raw_record)
-                    new_records.append(record)
-                    completed_requests += 1
-                    completed_since_checkpoint += 1
-                    if completed_since_checkpoint >= checkpoint_every:
-                        ledger = _merge_records(ledger, new_records)
-                        _write_decisions(output_path, ledger)
-                        new_records = []
-                        completed_since_checkpoint = 0
-                    if log and (
-                        completed_requests == 1
-                        or completed_requests % checkpoint_every == 0
-                        or completed_requests == len(pending)
-                    ):
-                        print(
-                            f"Jev pathogen evidence: {completed_requests}/{len(pending)} requests complete; "
-                            f"{format_eta(started_at, completed_requests, len(pending))}",
-                            flush=True,
-                        )
+        def process_completed(future: Future) -> None:
+            nonlocal ledger, new_records, completed_since_checkpoint, completed_requests, last_progress_report
+            row = futures[future]
+            try:
+                record, raw_record = future.result()
+            except Exception as exc:
+                record = {
+                    "pmid": row["pmid"],
+                    "canonical_species": row["canonical_species"],
+                    "matched_names": row["matched_names"],
+                    "input_hash": row["input_hash"],
+                    "provider": active_provider,
+                    "model": active_model,
+                    "question_id": question_id,
+                    "question_version": question["version"],
+                    "run_id": str(run_id),
+                    "p_yes": None,
+                    "status": "failed",
+                    "attempts": int(getattr(exc, "attempts", 1)),
+                    "error": f"{type(exc).__name__}: {exc}",
+                    "completed_at": None,
+                    "raw_response_path": str(raw_path),
+                }
+                raw_record = None
+            if raw_record is not None:
+                _append_raw_response(raw_path, raw_record)
+            new_records.append(record)
+            if spend_tracker is not None:
+                spend_tracker.add_attempts(int(record.get("attempts") or 1))
+            completed_requests += 1
+            completed_since_checkpoint += 1
+            if completed_since_checkpoint >= checkpoint_every:
+                ledger = _merge_records(ledger, new_records)
+                _write_decisions(output_path, ledger)
+                new_records = []
+                completed_since_checkpoint = 0
+            futures.pop(future, None)
+            if log and (
+                completed_requests == 1
+                or completed_requests - last_progress_report >= progress_every
+                or completed_requests == len(pending)
+            ):
+                if spend_tracker is not None:
+                    spend_tracker.refresh()
+                balance_text = spend_tracker.describe(len(pending) - completed_requests) if spend_tracker else "remaining credit unavailable"
+                last_progress_report = completed_requests
+                print(
+                    f"Jev pathogen evidence: {completed_requests}/{len(pending)} requests complete; "
+                    f"{format_eta(started_at, completed_requests, len(pending))}; "
+                    f"{balance_text}",
+                    flush=True,
+                )
+
+        def submit_next(pool: ThreadPoolExecutor) -> bool:
+            try:
+                row = next(pending_rows)
+            except StopIteration:
+                return False
+            future = pool.submit(
+                _score_one,
+                row,
+                client=active_client,
+                provider=active_provider,
+                question=question,
+                question_id=question_id,
+                run_id=str(run_id),
+                raw_response_path=raw_path,
+            )
+            futures[future] = row
+            running.add(future)
+            return True
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            max_in_flight = max(1, workers * 2)
+            for _ in range(min(max_in_flight, len(pending))):
+                submit_next(pool)
+            try:
+                while running:
+                    done, running = wait(running, return_when=FIRST_COMPLETED)
+                    for future in done:
+                        process_completed(future)
+                        if len(running) < max_in_flight:
+                            submit_next(pool)
+            except KeyboardInterrupt:
+                interrupted = True
+                if log:
+                    print("Jev pathogen evidence: stop requested; cancelling queued work and saving completed responses.", flush=True)
+                outstanding = list(futures)
+                for future in outstanding:
+                    future.cancel()
+                for future in outstanding:
+                    if future.cancelled():
+                        futures.pop(future, None)
+                    else:
+                        process_completed(future)
+                running.clear()
 
     if new_records:
         ledger = _merge_records(ledger, new_records)
     if pending or not output_path.exists():
         _write_decisions(output_path, ledger)
+    if spend_tracker is not None:
+        spend_tracker.refresh()
+        if log:
+            print(f"Jev pathogen evidence balance: {spend_tracker.describe(len(pending) - completed_requests if pending else 0)}", flush=True)
 
     current = ledger.loc[ledger["run_id"].astype(str).eq(str(run_id))].copy()
     if current.empty:
-        return pd.DataFrame(columns=DECISION_COLUMNS)
+        empty = pd.DataFrame(columns=DECISION_COLUMNS)
+        empty.attrs["interrupted"] = interrupted
+        return empty
     current = current.drop_duplicates(subset=KEY_COLUMNS, keep="last")
-    return current[DECISION_COLUMNS].sort_values(["canonical_species", "pmid"]).reset_index(drop=True)
+    current = current[DECISION_COLUMNS].sort_values(["canonical_species", "pmid"]).reset_index(drop=True)
+    current.attrs["interrupted"] = interrupted
+    return current
 
 
 def _merge_records(existing: pd.DataFrame, new_records: list[dict[str, Any]]) -> pd.DataFrame:
@@ -547,8 +599,11 @@ def run_phase3(config: dict[str, Any] | None = None, *, log: bool = True) -> dic
         log=log,
     )
     status_counts = decisions["status"].value_counts(dropna=False).to_dict() if not decisions.empty else {}
+    run_status = "interrupted" if decisions.attrs.get("interrupted", False) else (
+        "completed_with_failures" if status_counts.get("failed", 0) else "completed"
+    )
     return {
-        "status": "completed_with_failures" if status_counts.get("failed", 0) else "completed",
+        "status": run_status,
         "source": "openrouter_jev",
         "model": str(settings.get("model", DEFAULT_JEV_MODEL)),
         "run_id": run_id,
