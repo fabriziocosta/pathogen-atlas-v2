@@ -12,6 +12,7 @@ numeric features and optionally reverse it; both controls are disabled for
 categorical taxonomy colors.
 When a feature is selected, the chart hint shows that concept’s definition
 from the versioned Jev question set in `configs/domain_expert_questions.yaml`.
+Use **Min supporting PMIDs** to hide species with fewer accepted pathogen-supporting PubMed records; the map count updates to reflect the filtered set. The default minimum is zero.
 Search by species or taxonomy, zoom and pan the map, and click a point to
 inspect the lineage and the PMIDs accepted by the Phase 3 human pathogen
 evidence threshold. Each PMID opens its PubMed record. PMID data is split into
