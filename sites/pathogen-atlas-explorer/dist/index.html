@@ -188,11 +188,13 @@
       return [escapeHtml(record.species), ...taxonomy.map(escapeHtml), record.n_articles, record.n_pmids, record.pathogenic_index, escapeHtml(selection.label), selection.kind === 'feature' ? formatFraction(value) : escapeHtml(value || 'Unclassified')];
     }
 
-    function makeTrace(records, selection, missing = false) {
+    function makeTrace(records, selection, layer = 'scored') {
       const rows = records.filter((record) => {
         if (selection.kind !== 'feature') return true;
         const value = record.features[selection.index];
-        return missing ? value == null : value != null;
+        if (layer === 'missing') return value == null;
+        if (layer === 'zero') return value != null && Number(value) === 0;
+        return value != null && Number(value) > 0;
       });
       const sizeByIndex = byId('sizeByPathogenicIndex').checked;
       const markerSizing = sizeByIndex
@@ -207,9 +209,10 @@
         hoverlabel: {align: 'left', namelength: 0},
         showlegend: false,
       };
-      if (selection.kind === 'feature' && missing) {
+      if (selection.kind === 'feature' && (layer === 'missing' || layer === 'zero')) {
         trace.marker.color = '#aeb9c7';
-        trace.name = 'Not scored';
+        trace.marker.opacity = 0.38;
+        trace.name = layer === 'zero' ? '0% yes' : 'Not scored';
       } else if (selection.kind === 'feature') {
         trace.marker.color = rows.map((record) => record.features[selection.index]);
         trace.marker.colorscale = byId('colorMap').value;
@@ -239,7 +242,7 @@
       const selection = currentColorSelection();
       byId('colorMap').disabled = selection.kind !== 'feature';
       const traces = selection.kind === 'feature'
-        ? [makeTrace(records, selection), makeTrace(records, selection, true)]
+        ? [makeTrace(records, selection), makeTrace(records, selection, 'zero'), makeTrace(records, selection, 'missing')]
         : [makeTrace(records, selection)];
       if (selection.kind !== 'feature' && traces[0]._categoryRows) {
         const categoryRows = traces[0]._categoryRows;
@@ -276,7 +279,7 @@
         annotations: records.length ? [] : [{text: 'No species match this search',xref:'paper',yref:'paper',x:.5,y:.5,showarrow:false,font:{color:'#5e718b',size:13}}],
       };
       byId('mapHint').textContent = selection.kind === 'feature'
-        ? `Color: ${selection.label}. Jev question definition: ${selection.definition} Color intensity shows the share of scored pathogen-evidence abstracts answered yes; gray points have no scored answers. Hover for taxonomy and evidence counts; click a point to see its PMID links.`
+        ? `Color: ${selection.label}. Jev question definition: ${selection.definition} Color intensity shows the share of scored pathogen-evidence abstracts answered yes. Zero values and unscored points use translucent gray. Hover for taxonomy and evidence counts; click a point to see its PMID links.`
         : `Color: ${selection.label}. Hover for species, taxonomy, feature value, and evidence counts; click a point to see its PMID links.`;
       Plotly.react(byId('map'), traces, layout, {
         responsive: true,
