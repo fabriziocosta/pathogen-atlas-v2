@@ -287,7 +287,7 @@
         annotations: records.length ? [] : [{text: 'No species match this search',xref:'paper',yref:'paper',x:.5,y:.5,showarrow:false,font:{color:'#5e718b',size:13}}],
       };
       byId('mapHint').textContent = selection.kind === 'feature'
-        ? `Color: ${selection.label}. Jev question definition: ${selection.definition} Color intensity shows the share of scored pathogen-evidence abstracts answered yes. Zero values and unscored points use translucent gray. Hover for taxonomy and evidence counts; click a point to see its PMID links.`
+        ? `Color: ${selection.label}: ${selection.definition} Color intensity shows the share of scored pathogen-evidence abstracts answered yes. Zero values and unscored points use translucent gray. Hover for taxonomy and evidence counts; click a point to see its PMID links.`
         : `Color: ${selection.label}. Hover for species, taxonomy, feature value, and evidence counts; click a point to see its PMID links.`;
       Plotly.react(byId('map'), traces, layout, {
         responsive: true,
