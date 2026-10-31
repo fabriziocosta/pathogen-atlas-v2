@@ -53,6 +53,13 @@
     const formatNumber = (value) => value == null ? '—' : Number(value).toLocaleString();
     const formatFraction = (value) => value == null ? 'Not scored' : `${(Number(value) * 100).toFixed(0)}% yes`;
     const palette = ['#2166ac','#e08214','#1b9e77','#7570b3','#d95f02','#66a61e','#e7298a','#1f9e89','#a6761d','#386cb0','#f0027f','#7fc97f','#beaed4','#fdc086','#ffff99','#bf5b17','#80b1d3','#fb8072','#8dd3c7','#bebada'];
+    const extraColorScales = {
+      Inferno: [[0,'#000004'],[0.1111,'#1b0c41'],[0.2222,'#4a0c6b'],[0.3333,'#781c6d'],[0.4444,'#a52c60'],[0.5556,'#cf4446'],[0.6667,'#ed6925'],[0.7778,'#fb9b06'],[0.8889,'#f7d13d'],[1,'#fcffa4']],
+      Magma: [[0,'#000004'],[0.1111,'#180f3d'],[0.2222,'#440f76'],[0.3333,'#721f81'],[0.4444,'#9e2f7f'],[0.5556,'#cd4071'],[0.6667,'#f1605d'],[0.7778,'#fd9668'],[0.8889,'#feca8d'],[1,'#fcfdbf']],
+      Plasma: [[0,'#0d0887'],[0.1111,'#46039f'],[0.2222,'#7201a8'],[0.3333,'#9c179e'],[0.4444,'#bd3786'],[0.5556,'#d8576b'],[0.6667,'#ed7953'],[0.7778,'#fb9f3a'],[0.8889,'#fdca26'],[1,'#f0f921']],
+      Turbo: [[0,'#30123b'],[0.0714,'#4145ab'],[0.1429,'#4675ed'],[0.2143,'#39a2fc'],[0.2857,'#1bcfd4'],[0.3571,'#24eca6'],[0.4286,'#61fc6c'],[0.5,'#a4fc3b'],[0.5714,'#d1e834'],[0.6429,'#f3c63a'],[0.7143,'#fe9b2d'],[0.7857,'#f36315'],[0.8571,'#d93806'],[0.9286,'#b11901'],[1,'#7a0402']],
+      RdYlBu: [[0,'rgb(165,0,38)'],[0.1,'rgb(215,48,39)'],[0.2,'rgb(244,109,67)'],[0.3,'rgb(253,174,97)'],[0.4,'rgb(254,224,144)'],[0.5,'rgb(255,255,191)'],[0.6,'rgb(224,243,248)'],[0.7,'rgb(171,217,233)'],[0.8,'rgb(116,173,209)'],[0.9,'rgb(69,117,180)'],[1,'rgb(49,54,149)']],
+    };
     let dataset = null;
     let selectedSpecies = null;
     let embedded = false;
@@ -215,7 +222,8 @@
         trace.name = layer === 'zero' ? '0% yes' : 'Not scored';
       } else if (selection.kind === 'feature') {
         trace.marker.color = rows.map((record) => record.features[selection.index]);
-        trace.marker.colorscale = byId('colorMap').value;
+        const colorMap = byId('colorMap').value;
+        trace.marker.colorscale = extraColorScales[colorMap] || colorMap;
         trace.marker.cmin = 0;
         trace.marker.cmax = 1;
         trace.marker.showscale = true;
