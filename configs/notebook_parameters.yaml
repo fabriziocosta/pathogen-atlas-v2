@@ -52,7 +52,7 @@ phase3_abstract_decisions:
   raw_response_path: data/03_decisions/raw_responses/jev/pathogen_evidence.jsonl
   progress_every: 100
 phase4_table_creation:
-  run_phase: false
+  run_phase: true
   pipeline_module: pathogen_atlas_v2.pipelines.04_build_tables
   pubmed_config_path: configs/pubmed_query_templates.yaml
   canonical_pmid_index_path: data/02_abstracts/filtered/canonical_species_pmids.parquet
@@ -72,7 +72,7 @@ phase4_table_creation:
   release_dir: data/04_tables/release
   web_export_dir: data/04_tables/release/web_exports
 phase5_plot_creation:
-  run_phase: false
+  run_phase: true
   pipeline_module: pathogen_atlas_v2.pipelines.05_make_plots
   release_dir: data/04_tables/release
   plot_dir: data/05_plots/release
