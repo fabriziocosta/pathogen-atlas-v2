@@ -10,8 +10,8 @@ coordinates, and a domain-expert feature profile. Use
 ranks from domain through genus. Choose a continuous **Feature colormap** for
 numeric features and optionally reverse it; both controls are disabled for
 categorical taxonomy colors.
-When a feature is selected, the chart hint shows that concept’s definition
-from the versioned Jev question set in `configs/domain_expert_questions.yaml`.
+When a feature is selected, the chart hint shows its definition from the
+versioned Jev feature set in `configs/domain_expert_questions.yaml`.
 Use **Min supporting PMIDs** to hide species with fewer accepted pathogen-supporting PubMed records; the map count updates to reflect the filtered set. The default minimum is zero.
 Search by species or taxonomy, zoom and pan the map, and click a point to
 inspect the lineage and the PMIDs accepted by the Phase 3 human pathogen
@@ -23,12 +23,12 @@ feature record per point, not every abstract.
 Each supporting PMID includes the Jev confidence (`p_yes`) in its details.
 Confidence is right-aligned beside the PMID, and the list can be sorted by
 newest publication date or highest confidence.
-The species profile also includes a compact three-column panel for all 73
-domain-expert questions, grouped into bordered category boxes such as
+The species profile also includes all 73 domain-expert features in a compact
+three-column layout, grouped into bordered category boxes such as
 transmission and patient. Each bar shows the share of scored abstracts
-answered yes and the scored yes/total count; select a question to read its
-definition and color the map by that feature. Questions without scored answers
-are marked as unscored.
+answered yes and the scored yes/total count; select a feature to read its
+definition and color the map by it. Features without scored answers are marked
+as unscored.
 Each selected species shows its V2 pathogenic index. Enable **Size by
 pathogenic index** to scale point area by its normalized score; clear it to
 return to uniform point sizes.

@@ -20,7 +20,7 @@
     @media(max-width:520px){.shell{padding:18px 11px 24px}h1{font-size:28px}.intro{font-size:12px}.summary{grid-template-columns:1fr;gap:7px;margin:16px 0}.metric{min-height:52px}.metric-value{min-width:62px}.metric-label{font-size:10px}.topline{gap:8px}.badge{font-size:8px;padding:6px 8px}.control-grid{grid-template-columns:1fr}.control-grid .field:first-child{grid-column:auto}.control-options{align-items:flex-start}.toggle-row{gap:8px 14px}.button{flex:0 0 auto}#map{height:490px;min-height:490px}.paper-tools{gap:5px}.paper-sort{max-width:112px}.stats{gap:5px}.stat{padding:8px 6px}}
     .expert-profile{margin-top:17px;border:1px solid #e5edef;border-radius:10px;background:#fbfcfc}.expert-profile>summary{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;cursor:pointer;list-style:none;font-size:11px;font-weight:740}.expert-profile>summary::-webkit-details-marker{display:none}.expert-profile>summary::after{content:'+';color:#718697;font-size:15px;font-weight:600}.expert-profile[open]>summary::after{content:'−'}.expert-profile-count{margin-left:auto;color:#718697;font-size:9px;font-weight:600}.expert-profile-intro{margin:0;padding:0 12px 8px;color:#718294;font-size:9px;line-height:1.45}.expert-feature-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0 9px 10px}.expert-question{display:block;min-width:0;padding:7px;border:1px solid #e4ebee;border-radius:8px;background:white;color:var(--ink);text-align:left;cursor:pointer}.expert-question:hover{border-color:#a9c9c5;background:#f7fbfa}.expert-question:focus-visible{outline:2px solid #54968f;outline-offset:1px}.expert-question[aria-pressed="true"]{border-color:#79afa8;background:#edf7f4;box-shadow:inset 0 0 0 1px #79afa8}.expert-question-head{display:flex;justify-content:space-between;align-items:baseline;gap:4px}.expert-question-label{overflow:hidden;color:#3b5367;font-size:8px;font-weight:740;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}.expert-question-value{flex:0 0 auto;color:#365e5a;font-size:8px;font-weight:750;font-variant-numeric:tabular-nums}.expert-question-track{display:block;height:4px;margin:6px 0 4px;overflow:hidden;border-radius:3px;background:#e9eef0}.expert-question-fill{display:block;height:100%;border-radius:inherit;background:#21857b}.expert-answer-count{display:block;overflow:hidden;color:#7a8996;font-size:7px;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}.expert-question-detail{margin:0 9px 10px;padding:10px;border:1px solid #dcebe7;border-radius:8px;background:#f2f8f6}.expert-question-detail[hidden]{display:none}.expert-question-detail-title{margin:0 0 4px;color:#244b48;font-size:10px;font-weight:760}.expert-question-detail-definition{margin:0;color:#526a75;font-size:9px;line-height:1.5}.expert-question-detail-count{margin:5px 0 0;color:#718294;font-size:8px;line-height:1.4}.expert-category{display:inline-block;margin-bottom:4px;color:#748894;font-size:7px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}@media(max-width:520px){.expert-feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.expert-question{padding:8px}.expert-question-label,.expert-question-value{font-size:9px}.expert-answer-count{font-size:8px}}
     .expert-question-groups{display:grid;gap:7px;padding:0 9px 10px}.expert-category-box{min-width:0;margin:0;padding:1px 0 3px;border:1px solid #dce5e9;border-radius:8px;background:#f2f6f7}.expert-category-box legend{margin-left:8px;padding:0 5px;color:#526f7c;font-size:8px;font-weight:760;letter-spacing:.06em;text-transform:uppercase}.expert-category-box .expert-feature-grid{padding:5px 6px 4px}
-    .pmid-head{align-items:center}.pmid-disclosure{flex:1;min-width:0}.pmid-summary{display:flex;justify-content:space-between;align-items:center;gap:8px;list-style:none;cursor:pointer}.pmid-summary::-webkit-details-marker{display:none}.pmid-summary::after{content:'+';flex:0 0 auto;color:#718697;font-size:15px;font-weight:600}.pmid-disclosure[open]>.pmid-summary::after{content:'−'}.pmid-summary .count{margin-left:auto}
+    .pmid-box{min-width:0;margin:17px 0 0;padding:4px 10px 10px;border:1px solid #dce5e9;border-radius:8px;background:#f2f6f7}.pmid-box>legend{margin-left:8px;padding:0 5px;color:#526f7c;font-size:10px;font-weight:740}.pmid-disclosure{min-width:0}.pmid-summary{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 2px;list-style:none;cursor:pointer;color:#526a7c;font-size:10px;font-weight:650}.pmid-summary::-webkit-details-marker{display:none}.pmid-summary::after{content:'+';flex:0 0 auto;color:#718697;font-size:15px;font-weight:600}.pmid-disclosure[open]>.pmid-summary::after{content:'−'}.pmid-content{padding:4px 2px 0}.pmid-content>.paper-sort{display:block;margin:0 0 9px auto}.pmid-summary .count{margin:0}
   </style>
 </head>
 <body>
@@ -387,15 +387,15 @@
       expertProfile.className = 'expert-profile';
       const expertSummary = document.createElement('summary');
       const expertSummaryTitle = document.createElement('span');
-      expertSummaryTitle.textContent = 'Domain-expert questions';
+      expertSummaryTitle.textContent = 'Features';
       const expertCount = document.createElement('span');
       expertCount.className = 'expert-profile-count';
-      expertCount.textContent = `${dataset.features.length} questions`;
+      expertCount.textContent = `${dataset.features.length} features`;
       expertSummary.append(expertSummaryTitle, expertCount);
       expertProfile.append(expertSummary);
       const expertIntro = document.createElement('p');
       expertIntro.className = 'expert-profile-intro';
-      expertIntro.textContent = 'Share of scored abstracts answered yes. Select a question to color the map and read its definition and exact counts.';
+      expertIntro.textContent = 'Share of scored abstracts answered yes. Select a feature to color the map and read its definition and exact counts.';
       expertProfile.append(expertIntro);
       const expertGroups = document.createElement('div');
       expertGroups.className = 'expert-question-groups';
@@ -466,7 +466,7 @@
           expertDetailDefinition.textContent = feature.definition;
           expertDetailCount.textContent = answered != null
             ? `${formatNumber(yes)} yes out of ${formatNumber(answered)} scored abstracts (${formatFraction(value)}).`
-            : 'No scored abstracts are available for this question and species.';
+            : 'No scored abstracts are available for this feature and species.';
           expertDetail.hidden = false;
         });
         categoryGrids.get(category).append(button);
@@ -474,19 +474,22 @@
       expertProfile.append(expertGroups, expertDetail);
       details.append(expertProfile);
 
-      const papersHeader = document.createElement('div');
-      papersHeader.className = 'pmid-head section-title';
+      const papersBox = document.createElement('fieldset');
+      papersBox.className = 'pmid-box';
+      const papersLegend = document.createElement('legend');
+      papersLegend.textContent = 'Pathogen supporting abstracts';
+      papersBox.append(papersLegend);
       const papersSection = document.createElement('details');
       papersSection.className = 'pmid-disclosure';
       const papersSummary = document.createElement('summary');
       papersSummary.className = 'pmid-summary';
-      const papersTitle = document.createElement('span');
-      papersTitle.textContent = 'Pathogen supporting abstracts';
       const papersCount = document.createElement('span');
       papersCount.className = 'count';
       papersCount.textContent = `${Number(record.n_pmids || 0).toLocaleString()} PMID${record.n_pmids === 1 ? '' : 's'}`;
-      papersSummary.append(papersTitle, papersCount);
+      papersSummary.append(papersCount);
       papersSection.append(papersSummary);
+      const papersContent = document.createElement('div');
+      papersContent.className = 'pmid-content';
       const sortSelect = document.createElement('select');
       sortSelect.className = 'paper-sort';
       sortSelect.setAttribute('aria-label', 'Sort pathogen supporting abstracts');
@@ -496,15 +499,17 @@
         option.textContent = label;
         sortSelect.append(option);
       }
-      papersHeader.append(papersSection, sortSelect);
-      details.append(papersHeader);
+      papersContent.append(sortSelect);
       const papers = document.createElement('div');
       papers.className = 'pmids';
       const loading = document.createElement('div');
       loading.className = 'empty';
       loading.textContent = record.n_pmids ? 'Expand to load pathogen supporting records…' : 'No accepted pathogen evidence PMIDs are available for this species.';
       papers.append(loading);
-      papersSection.append(papers);
+      papersContent.append(papers);
+      papersSection.append(papersContent);
+      papersBox.append(papersSection);
+      details.append(papersBox);
       renderMap();
       let speciesPapers = [];
       let papersLoaded = false;
