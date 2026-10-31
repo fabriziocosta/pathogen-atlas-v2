@@ -234,9 +234,13 @@ def build_payload(
         species_name = record["species"]
         shard = record["evidence_shard"]
         evidence_shards.setdefault(shard, {})[species_name] = paper_by_species.get(species_name, [])
+    evidence_version = hashlib.sha256(
+        json.dumps(evidence_shards, ensure_ascii=False, allow_nan=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()[:16]
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
+        "evidence_version": evidence_version,
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "source": "Pathogen Atlas V2 Phase 4 accepted evidence and Phase 5 IMSTE coordinates",
         "counts": {

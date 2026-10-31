@@ -88,19 +88,21 @@
 
     async function loadSpeciesEvidence(record) {
       if (!record.n_pmids) return [];
-      if (!evidenceShardCache.has(record.evidence_shard)) {
-        const request = fetch(`./evidence/${encodeURIComponent(record.evidence_shard)}.json`, {cache: 'force-cache'})
+      const evidenceVersion = dataset.evidence_version || dataset.schema_version || '1';
+      const cacheKey = `${evidenceVersion}:${record.evidence_shard}`;
+      if (!evidenceShardCache.has(cacheKey)) {
+        const request = fetch(`./evidence/${encodeURIComponent(record.evidence_shard)}.json?v=${encodeURIComponent(evidenceVersion)}`, {cache: 'force-cache'})
           .then((response) => {
             if (!response.ok) throw new Error(`Could not load evidence records (HTTP ${response.status})`);
             return response.json();
           });
-        evidenceShardCache.set(record.evidence_shard, request);
+        evidenceShardCache.set(cacheKey, request);
       }
       try {
-        const shard = await evidenceShardCache.get(record.evidence_shard);
+        const shard = await evidenceShardCache.get(cacheKey);
         return shard[record.species] || [];
       } catch (error) {
-        evidenceShardCache.delete(record.evidence_shard);
+        evidenceShardCache.delete(cacheKey);
         throw error;
       }
     }
