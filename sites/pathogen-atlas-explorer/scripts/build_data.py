@@ -88,7 +88,7 @@ def build_payload(
     )
 
     paper_by_species: dict[str, list[dict[str, Any]]] = {}
-    paper_columns = [column for column in ("canonical_species", "pmid", "title", "publication_year", "publication_date", "doi") if column in evidence]
+    paper_columns = [column for column in ("canonical_species", "pmid", "title", "publication_year", "publication_date", "doi", "p_yes") if column in evidence]
     for row in evidence[paper_columns].sort_values(
         [column for column in ("canonical_species", "publication_year", "pmid") if column in paper_columns],
         ascending=[True] + ([False] if "publication_year" in paper_columns else []) + [True],
@@ -102,6 +102,7 @@ def build_payload(
                 "title": clean_text(record.get("title")),
                 "year": as_optional_number(record.get("publication_year")),
                 "doi": clean_text(record.get("doi")),
+                "confidence": as_optional_number(record.get("p_yes")),
             }
         )
 

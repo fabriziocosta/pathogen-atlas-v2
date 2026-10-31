@@ -326,10 +326,10 @@
           paperTitle.textContent = paper.title;
           card.append(paperTitle);
         }
-        if (paper.year != null || paper.doi) {
+        if (paper.year != null || paper.doi || paper.confidence != null) {
           const meta = document.createElement('div');
           meta.className = 'paper-meta';
-          meta.textContent = [paper.year, paper.doi ? `DOI ${paper.doi}` : null].filter(Boolean).join(' · ');
+          meta.textContent = [paper.year, paper.doi ? `DOI ${paper.doi}` : null, paper.confidence == null ? null : `Conf: ${Number(paper.confidence).toFixed(2)}`].filter(Boolean).join(' · ');
           card.append(meta);
         }
         papers.append(card);

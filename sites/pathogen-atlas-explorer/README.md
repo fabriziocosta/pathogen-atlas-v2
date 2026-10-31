@@ -13,6 +13,7 @@ the Phase 3 human pathogen evidence threshold. Each PMID opens its PubMed
 record. PMID data is split into small hashed shards and fetched only when a
 species is selected, then cached by the browser. The initial page load contains
 the single species coordinate and feature record per point, not every abstract.
+Each supporting PMID includes the Jev confidence (`p_yes`) in its details.
 Enable **Size by pathogenic index** to scale point area with the normalized V1
 index; clear it to return to uniform point sizes.
 
