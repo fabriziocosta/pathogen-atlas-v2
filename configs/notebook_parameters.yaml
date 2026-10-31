@@ -40,7 +40,6 @@ phase3_abstract_decisions:
   expert_checkpoint_every: 100
   question_confidence_threshold: 0.75
   max_workers: 128
-  progress_every: 100
   retries: 3
   backoff_seconds: 1.0
   timeout_seconds: 90.0
@@ -51,6 +50,7 @@ phase3_abstract_decisions:
   expert_answers_path: data/03_decisions/parsed/domain_expert_answers.parquet
   expert_raw_response_path: data/03_decisions/raw_responses/jev/domain_expert_questions.jsonl
   raw_response_path: data/03_decisions/raw_responses/jev/pathogen_evidence.jsonl
+  progress_every: 100
 phase4_table_creation:
   run_phase: false
   pipeline_module: pathogen_atlas_v2.pipelines.04_build_tables
