@@ -7,7 +7,7 @@ need a Python server or database after publication.
 The map has exactly one point per species, using that species’ saved Phase 5
 coordinates, and a domain-expert feature profile. Use
 **Color species by** to select any of the 73 feature prevalences or taxonomy
-ranks from domain through genus. Open the gear menu to choose a continuous
+ranks from domain through genus. Open **Color settings** to choose a continuous
 **Feature colormap** for numeric features and optionally reverse it; both
 settings are disabled for categorical taxonomy colors.
 When a feature is selected, the chart hint shows its definition from the
