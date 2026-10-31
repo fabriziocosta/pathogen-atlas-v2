@@ -9,8 +9,8 @@ coordinates, and a domain-expert feature profile. Use
 **Color species by** to select any of the 73 feature prevalences or taxonomy
 ranks from domain through genus. Open **Color settings** to choose a continuous
 **Feature colormap** for numeric features, reverse it, or switch species-circle
-edges between white and black. The colormap and reverse controls are disabled
-for categorical taxonomy colors.
+edges between white and black (black by default). The colormap and reverse
+controls are disabled for categorical taxonomy colors.
 When a feature is selected, the chart hint shows its definition from the
 versioned Jev feature set in `configs/domain_expert_questions.yaml`.
 Use **Min supporting PMIDs** to hide species with fewer accepted pathogen-supporting PubMed records; the map count updates to reflect the filtered set. The default minimum is zero.
