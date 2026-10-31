@@ -9,6 +9,8 @@ coordinates, and a domain-expert feature profile. Use
 **Color species by** to select any of the 73 feature prevalences or taxonomy
 ranks from domain through genus. Choose a continuous **Feature colormap** for
 numeric features; the selector is disabled for categorical taxonomy colors.
+When a feature is selected, the chart hint shows that concept’s definition
+from the versioned Jev question set in `configs/domain_expert_questions.yaml`.
 Search by species or taxonomy, zoom and pan the map, and click a point to
 inspect the lineage and the PMIDs accepted by the Phase 3 human pathogen
 evidence threshold. Each PMID opens its PubMed record. PMID data is split into

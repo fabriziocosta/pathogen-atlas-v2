@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import yaml
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -17,6 +18,7 @@ RELEASE = ROOT / "data/04_tables/release"
 COORDINATES = ROOT / "data/05_plots/release/species_feature_space_coordinates.parquet"
 OUTPUT = ROOT / "sites/pathogen-atlas-explorer/dist/explorer-data.json"
 EVIDENCE_DIR = ROOT / "sites/pathogen-atlas-explorer/dist/evidence"
+QUESTION_SET_PATH = ROOT / "configs/domain_expert_questions.yaml"
 TAXONOMY_LEVELS = ("domain", "kingdom", "phylum", "class", "order", "family", "genus")
 EVIDENCE_SHARD_PREFIX_LENGTH = 2
 
@@ -69,14 +71,20 @@ def build_payload(
         .assign(column=lambda frame: "feature_" + frame["question_id"].astype(str))
     )
     features = features.loc[features["column"].isin(feature_columns)].copy()
+    question_config = yaml.safe_load(QUESTION_SET_PATH.read_text(encoding="utf-8"))
+    questions = question_config.get("questions", {})
     feature_definitions = [
         {
             "id": str(row.question_id),
             "label": str(row.concept),
             "category": str(row.category),
+            "definition": str(questions.get(str(row.question_id), {}).get("definition", "")).strip(),
         }
         for row in features.itertuples(index=False)
     ]
+    missing_definitions = [feature["id"] for feature in feature_definitions if not feature["definition"]]
+    if missing_definitions:
+        raise ValueError(f"Question set is missing concept definitions for: {missing_definitions}")
     feature_ids = features["question_id"].astype(str).tolist()
 
     if "accepted" not in evidence.columns:
@@ -195,14 +203,16 @@ def main() -> None:
         pd.read_parquet(RELEASE / "pathogenic_index.parquet"),
     )
     evidence_shards = payload.pop("_evidence_shard_payloads")
-    for stale_shard in EVIDENCE_DIR.glob("*.json") if EVIDENCE_DIR.exists() else []:
-        stale_shard.unlink()
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+    expected_shards = {f"{shard}.json" for shard in evidence_shards}
+    for stale_shard in EVIDENCE_DIR.glob("*.json"):
+        if stale_shard.name not in expected_shards:
+            stale_shard.unlink()
     for shard, species_papers in evidence_shards.items():
-        (EVIDENCE_DIR / f"{shard}.json").write_text(
-            json.dumps(species_papers, ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n",
-            encoding="utf-8",
-        )
+        shard_path = EVIDENCE_DIR / f"{shard}.json"
+        shard_content = json.dumps(species_papers, ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n"
+        if not shard_path.exists() or shard_path.read_text(encoding="utf-8") != shard_content:
+            shard_path.write_text(shard_content, encoding="utf-8")
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(
         json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n",
