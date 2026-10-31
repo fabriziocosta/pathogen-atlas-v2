@@ -251,7 +251,7 @@
         trace.marker.cmin = 0;
         trace.marker.cmax = 1;
         trace.marker.showscale = true;
-        trace.marker.colorbar = {title: {text: selection.label, side: 'right'}, thickness: 13, len: 0.72, tickformat: '.0%'};
+        trace.marker.colorbar = {x: 1.07, thickness: 13, len: 0.72, tickformat: '.0%'};
       } else {
         const values = rows.map((record) => record.taxonomy?.[selection.key] || 'Unclassified');
         const categories = [...new Set(values)].sort((a,b) => a.localeCompare(b));
@@ -308,7 +308,7 @@
         traces.push({type:'scattergl',mode:'markers',x:[selected.x],y:[selected.y],hoverinfo:'skip',showlegend:false,marker:{symbol:'circle-open',size:17,color:'#d84a36',line:{width:2.5}}});
       }
       const layout = {
-        margin: {l: 58, r: selection.kind === 'feature' ? 88 : 20, t: 22, b: 50},
+        margin: {l: 58, r: selection.kind === 'feature' ? 112 : 20, t: 22, b: 50},
         paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff',
         font: {family: 'Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif', color: '#29425f', size: 11},
         xaxis: {title: 'IMSTE 1', zeroline: false, gridcolor: '#edf1f6'},
@@ -316,7 +316,9 @@
         hovermode: 'closest', uirevision: 'pathogen-atlas-feature-space',
         showlegend: selection.kind === 'taxonomy' && (dataset.taxonomy_levels.includes(selection.key)) && [...new Set(records.map((record) => record.taxonomy?.[selection.key] || 'Unclassified'))].length <= 12,
         legend: {orientation: 'h', y: -0.15, x: 0, font: {size: 10}},
-        annotations: records.length ? [] : [{text: 'No species match this search',xref:'paper',yref:'paper',x:.5,y:.5,showarrow:false,font:{color:'#5e718b',size:13}}],
+        annotations: records.length
+          ? (selection.kind === 'feature' ? [{text: selection.label, xref: 'paper', yref: 'paper', x: 1.035, y: 0.5, textangle: -90, showarrow: false, xanchor: 'center', yanchor: 'middle', font: {color: '#29425f', size: 11}}] : [])
+          : [{text: 'No species match this search',xref:'paper',yref:'paper',x:.5,y:.5,showarrow:false,font:{color:'#5e718b',size:13}}],
       };
       const mapHint = byId('mapHint');
       const hintPrimary = document.createElement('span');
