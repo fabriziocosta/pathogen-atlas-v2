@@ -465,6 +465,7 @@
       expertProfile.append(expertIntro);
       const expertGroups = document.createElement('div');
       expertGroups.className = 'expert-question-groups';
+      let selectedFeature = null;
       const categoryGrids = new Map();
       const expertDetail = document.createElement('div');
       expertDetail.className = 'expert-question-detail';
@@ -525,8 +526,15 @@
         button.addEventListener('click', () => {
           expertGroups.querySelectorAll('.expert-question').forEach((item) => item.setAttribute('aria-pressed', 'false'));
           button.setAttribute('aria-pressed', 'true');
+          selectedFeature = feature;
           byId('colorBy').value = `feature:${feature.id}`;
           renderMap();
+          featureEvidenceTitle.textContent = `Abstracts supporting ${feature.label}`;
+          const supportingCount = Number(yes || 0);
+          featureEvidenceCount.textContent = `${formatNumber(supportingCount)} PMID${supportingCount === 1 ? '' : 's'}`;
+          featureEvidenceEmpty.textContent = supportingCount
+            ? `Expand to load abstracts that support ${feature.label}.`
+            : `No accepted pathogen-evidence abstracts answered yes for ${feature.label}.`;
           expertDetailCategory.textContent = category.replaceAll('_', ' ');
           expertDetailTitle.textContent = feature.label;
           expertDetailDefinition.textContent = feature.definition;
@@ -534,6 +542,7 @@
             ? `${formatNumber(yes)} yes out of ${formatNumber(answered)} scored abstracts (${formatFraction(value)}).`
             : 'No scored abstracts are available for this feature and species.';
           expertDetail.hidden = false;
+          if (featureEvidenceBox.open) loadFeatureEvidence();
         });
         categoryGrids.get(category).append(button);
       });
@@ -570,11 +579,57 @@
       papers.append(loading);
       papersContent.append(papers);
       papersBox.append(papersContent);
-      details.append(papersBox);
+      details.insertBefore(papersBox, expertProfile);
+      const featureEvidenceBox = document.createElement('details');
+      featureEvidenceBox.className = 'expert-profile pmid-box';
+      const featureEvidenceSummary = document.createElement('summary');
+      const featureEvidenceTitle = document.createElement('span');
+      featureEvidenceTitle.textContent = 'Abstracts supporting selected feature';
+      const featureEvidenceCount = document.createElement('span');
+      featureEvidenceCount.className = 'expert-profile-count';
+      featureEvidenceCount.textContent = 'Select a feature';
+      featureEvidenceSummary.append(featureEvidenceTitle, featureEvidenceCount);
+      featureEvidenceBox.append(featureEvidenceSummary);
+      const featureEvidenceContent = document.createElement('div');
+      featureEvidenceContent.className = 'pmid-content';
+      const featureEvidenceSort = document.createElement('select');
+      featureEvidenceSort.className = 'paper-sort';
+      featureEvidenceSort.setAttribute('aria-label', 'Sort selected feature supporting abstracts');
+      for (const [value, label] of [['date', 'Date: newest'], ['confidence', 'Confidence: high']]) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        featureEvidenceSort.append(option);
+      }
+      featureEvidenceContent.append(featureEvidenceSort);
+      const featureEvidencePapers = document.createElement('div');
+      featureEvidencePapers.className = 'pmids';
+      const featureEvidenceEmpty = document.createElement('div');
+      featureEvidenceEmpty.className = 'empty';
+      featureEvidenceEmpty.textContent = 'Select a feature above to see its supporting abstracts.';
+      featureEvidencePapers.append(featureEvidenceEmpty);
+      featureEvidenceContent.append(featureEvidencePapers);
+      featureEvidenceBox.append(featureEvidenceContent);
+      details.append(featureEvidenceBox);
+
       renderMap();
       let speciesPapers = [];
       let papersLoaded = false;
       let papersLoading = false;
+      let evidenceLoadPromise = null;
+      const ensureSpeciesPapers = () => {
+        if (papersLoaded) return Promise.resolve(speciesPapers);
+        if (!evidenceLoadPromise) {
+          evidenceLoadPromise = loadSpeciesEvidence(record)
+            .then((papers) => {
+              speciesPapers = papers;
+              papersLoaded = true;
+              return papers;
+            })
+            .finally(() => { evidenceLoadPromise = null; });
+        }
+        return evidenceLoadPromise;
+      };
       const renderPapers = () => {
         papers.replaceChildren();
         const orderedPapers = sortEvidence(speciesPapers, sortSelect.value);
@@ -587,17 +642,53 @@
         }
         for (const paper of orderedPapers) papers.append(makePaperCard(paper));
       };
+      const renderFeaturePapers = () => {
+        featureEvidencePapers.replaceChildren();
+        if (!selectedFeature) {
+          featureEvidencePapers.append(featureEvidenceEmpty);
+          featureEvidenceEmpty.textContent = 'Select a feature above to see its supporting abstracts.';
+          return;
+        }
+        const supportingPapers = speciesPapers.filter((paper) => paper.feature_ids?.includes(selectedFeature.id));
+        if (!supportingPapers.length) {
+          featureEvidencePapers.append(featureEvidenceEmpty);
+          featureEvidenceEmpty.textContent = `No accepted pathogen-evidence abstracts answered yes for ${selectedFeature.label}.`;
+          return;
+        }
+        for (const paper of sortEvidence(supportingPapers, featureEvidenceSort.value)) {
+          featureEvidencePapers.append(makePaperCard(paper));
+        }
+      };
+      const loadFeatureEvidence = async () => {
+        if (!selectedFeature) return;
+        featureEvidenceEmpty.textContent = 'Loading feature supporting abstracts…';
+        featureEvidencePapers.replaceChildren(featureEvidenceEmpty);
+        try {
+          await ensureSpeciesPapers();
+          if (selectedSpecies !== name) return;
+          renderFeaturePapers();
+        } catch (error) {
+          if (selectedSpecies !== name) return;
+          featureEvidenceEmpty.textContent = 'Could not load feature supporting abstracts. Collapse and reopen the section to retry.';
+          console.error(error);
+        }
+      };
       sortSelect.addEventListener('change', () => {
         if (papersLoaded) renderPapers();
+      });
+      featureEvidenceSort.addEventListener('change', () => {
+        if (papersLoaded) renderFeaturePapers();
+      });
+      featureEvidenceBox.addEventListener('toggle', () => {
+        if (featureEvidenceBox.open && selectedFeature) loadFeatureEvidence();
       });
       papersBox.addEventListener('toggle', async () => {
         if (!papersBox.open || papersLoaded || papersLoading) return;
         papersLoading = true;
         loading.textContent = 'Loading pathogen supporting records…';
         try {
-          speciesPapers = await loadSpeciesEvidence(record);
+          await ensureSpeciesPapers();
           if (selectedSpecies !== name) return;
-          papersLoaded = true;
           renderPapers();
         } catch (error) {
           if (selectedSpecies !== name) return;

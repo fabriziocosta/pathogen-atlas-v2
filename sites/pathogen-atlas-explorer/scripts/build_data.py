@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[3]
 RELEASE = ROOT / "data/04_tables/release"
 COORDINATES = ROOT / "data/05_plots/release/species_feature_space_coordinates.parquet"
 SYNONYM_MAPPING = ROOT / "data/01_species/release/species_synonym_mapping.parquet"
+FEATURE_ANSWERS = RELEASE / "domain_expert_answers.parquet"
 WIKIPEDIA_LINKS = ROOT / "sites/pathogen-atlas-explorer/data/species_wikipedia_links.csv"
 OUTPUT = ROOT / "sites/pathogen-atlas-explorer/dist/explorer-data.json"
 EVIDENCE_DIR = ROOT / "sites/pathogen-atlas-explorer/dist/evidence"
@@ -49,6 +50,7 @@ def build_payload(
     pathogenic_index: pd.DataFrame,
     synonym_mapping: pd.DataFrame | None = None,
     wikipedia_links: pd.DataFrame | None = None,
+    feature_answers: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Join release tables into the small client-side explorer contract."""
     required_coordinates = {"canonical_species", "imste_1", "imste_2"}
@@ -124,6 +126,25 @@ def build_payload(
         raise ValueError(f"Question set is missing concept definitions for: {missing_definitions}")
     feature_ids = features["question_id"].astype(str).tolist()
 
+    feature_ids_by_pair: dict[tuple[str, str], list[str]] = {}
+    if feature_answers is not None:
+        answer_columns = ["canonical_species", "pmid", "question_id", "answer_yes"]
+        missing_answer_columns = set(answer_columns) - set(feature_answers.columns)
+        if missing_answer_columns:
+            raise ValueError(f"Feature-answer table is missing columns: {sorted(missing_answer_columns)}.")
+        answers = feature_answers[answer_columns].copy()
+        for column in answer_columns[:3]:
+            answers[column] = answers[column].astype(str).str.strip()
+        answers = answers.loc[answers["answer_yes"].fillna(False).astype(bool)]
+        answers = answers.loc[answers["question_id"].isin(feature_ids)]
+        if answers.duplicated(["canonical_species", "pmid", "question_id"]).any():
+            raise ValueError("Feature-answer table contains duplicate species, PMID, and feature rows.")
+        feature_order = {question_id: index for index, question_id in enumerate(feature_ids)}
+        for (species, pmid), group in answers.groupby(["canonical_species", "pmid"], sort=False):
+            feature_ids_by_pair[(species, pmid)] = sorted(
+                group["question_id"].tolist(), key=feature_order.__getitem__
+            )
+
     if "accepted" not in evidence.columns:
         raise ValueError("Evidence table needs an 'accepted' flag to identify pathogen-confirming PMIDs.")
     evidence = evidence.loc[evidence["accepted"].fillna(False).astype(bool)].copy()
@@ -149,6 +170,7 @@ def build_payload(
                 "year": as_optional_number(record.get("publication_year")),
                 "doi": clean_text(record.get("doi")),
                 "confidence": as_optional_number(record.get("p_yes")),
+                "feature_ids": feature_ids_by_pair.get((species_name, str(record["pmid"])), []),
             }
         )
 
@@ -239,6 +261,7 @@ def main() -> None:
         RELEASE / "pathogenic_index.parquet",
         RELEASE / "species_feature_matrix.parquet",
         RELEASE / "species_feature_summary.parquet",
+        FEATURE_ANSWERS,
         COORDINATES,
         SYNONYM_MAPPING,
         WIKIPEDIA_LINKS,
@@ -256,6 +279,7 @@ def main() -> None:
         pd.read_parquet(RELEASE / "pathogenic_index.parquet"),
         pd.read_parquet(SYNONYM_MAPPING),
         pd.read_csv(WIKIPEDIA_LINKS, keep_default_na=False),
+        pd.read_parquet(FEATURE_ANSWERS, columns=["canonical_species", "pmid", "question_id", "answer_yes"]),
     )
     evidence_shards = payload.pop("_evidence_shard_payloads")
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)

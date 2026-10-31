@@ -33,8 +33,11 @@ The species profile also includes all 73 domain-expert features in a compact
 three-column layout, grouped into bordered category boxes such as
 transmission and patient. Each bar shows the share of scored abstracts
 answered yes and the scored yes/total count; select a feature to read its
-definition and color the map by it. Features without scored answers are marked
-as unscored.
+definition and color the map by it. The collapsible **Abstracts supporting
+selected feature** section lists the accepted pathogen-evidence PMIDs that were
+answered yes for the selected feature, using the same confidence and sorting
+controls as the pathogen-supporting PMID list. Features without scored answers
+are marked as unscored.
 Each selected species shows its V2 pathogenic index. Enable **Size by
 pathogenic index** to scale point area by its normalized score; clear it to
 return to uniform point sizes.
