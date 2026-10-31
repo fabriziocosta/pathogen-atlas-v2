@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,8 @@ SYNONYM_MAPPING = ROOT / "data/01_species/release/species_synonym_mapping.parque
 FEATURE_ANSWERS = RELEASE / "domain_expert_answers.parquet"
 WIKIPEDIA_LINKS = ROOT / "sites/pathogen-atlas-explorer/data/species_wikipedia_links.csv"
 OUTPUT = ROOT / "sites/pathogen-atlas-explorer/dist/explorer-data.json"
+BRAND_LOGO = ROOT / "assets/pathogen-atlas-logo.png"
+BRAND_LOGO_OUTPUT = OUTPUT.parent / "assets/pathogen-atlas-logo.png"
 EVIDENCE_DIR = ROOT / "sites/pathogen-atlas-explorer/dist/evidence"
 QUESTION_SET_PATH = ROOT / "configs/domain_expert_questions.yaml"
 TAXONOMY_LEVELS = ("domain", "kingdom", "phylum", "class", "order", "family", "genus")
@@ -269,6 +272,7 @@ def main() -> None:
         COORDINATES,
         SYNONYM_MAPPING,
         WIKIPEDIA_LINKS,
+        BRAND_LOGO,
     ]
     missing = [str(path) for path in required_paths if not path.exists()]
     if missing:
@@ -301,6 +305,8 @@ def main() -> None:
         json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )
+    BRAND_LOGO_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(BRAND_LOGO, BRAND_LOGO_OUTPUT)
     print(
         f"Wrote {OUTPUT.relative_to(ROOT)}: {payload['counts']['species']:,} species, "
         f"{payload['counts']['species_pmid_records']:,} species-PMID records, "

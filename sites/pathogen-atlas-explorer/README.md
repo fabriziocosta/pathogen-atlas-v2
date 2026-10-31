@@ -70,8 +70,9 @@ only accepted PubMed IDs, titles, years, and DOI values. The build stops if
 the coordinate table has duplicate species or the evidence table has no
 acceptance flag, and includes the `pathogenic_index.parquet` data table for Pathogenic Interest Index marker sizing.
 The payload includes total PubMed search records and the Wikipedia URL from the
-lookup table. Rebuild it after updating the Phase 4 tables or rerunning the
-IMSTE embedding.
+lookup table. The build also copies the repository logo into `dist/assets/` for
+the explorer header. Rebuild it after updating the Phase 4 tables or rerunning
+the IMSTE embedding.
 
 ## Preview locally
 
