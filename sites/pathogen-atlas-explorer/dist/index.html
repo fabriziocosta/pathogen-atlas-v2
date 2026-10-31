@@ -23,7 +23,8 @@
     .expert-question-groups{display:grid;gap:7px;padding:0 0 10px}.expert-category-box{min-width:0;margin:0;padding:1px 0 3px;border:1px solid #dce5e9;border-radius:8px;background:#f2f6f7}.expert-category-box legend{margin-left:8px;padding:0 5px;color:#526f7c;font-size:8px;font-weight:760;letter-spacing:.06em;text-transform:uppercase}.expert-category-box .expert-feature-grid{padding:5px 6px 4px}
     .taxonomy-synonym-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}.taxonomy-panel,.synonyms-panel{min-width:0}.taxonomy-panel>.section-title,.synonyms-panel>.section-title{margin:0 0 8px}.synonyms-list{display:grid;gap:5px;margin:0;padding:0;list-style:none;color:#42596c;font-size:9px;line-height:1.4}.synonyms-list li{overflow-wrap:anywhere}.synonyms-empty{color:#82909d;font-style:italic}.synonyms-count{margin-left:5px;color:#718697;font-size:8px;font-weight:600}
     @media(max-width:520px){.taxonomy-synonym-grid{grid-template-columns:1fr}}
-    @font-face{font-family:"Bootstrap Icons";src:url("./assets/fonts/bootstrap-icons.woff2") format("woff2");font-display:swap}.bi{display:inline-block;font-family:"Bootstrap Icons"!important;font-style:normal;font-weight:normal!important;line-height:1;vertical-align:-.125em;-webkit-font-smoothing:antialiased}.bi-sliders::before{content:"\f56b"}.bi-house-door::before{content:"\f423"}
+    @font-face{font-family:"Bootstrap Icons";src:url("./assets/fonts/bootstrap-icons.woff2") format("woff2");font-display:swap}.bi{display:inline-block;font-family:"Bootstrap Icons"!important;font-style:normal;font-weight:normal!important;line-height:1;vertical-align:-.125em;-webkit-font-smoothing:antialiased}.bi-sliders::before{content:"\f56b"}.bi-house-door::before{content:"\f423"}.bi-download::before{content:"\f30a"}
+    .csv-download{display:inline-grid;place-items:center;flex:0 0 34px;width:34px;height:34px;padding:0;border:1px solid #d3dfe4;border-radius:8px;background:#fff;color:#33586a;font-size:15px;cursor:pointer;transition:background .15s,border-color .15s,color .15s}.csv-download:hover{background:#eef6f4;border-color:#b9d4ce;color:var(--teal-dark)}.csv-download:focus-visible{outline:3px solid rgba(20,117,110,.18);outline-offset:2px}
     .control-actions{display:flex;align-items:center;gap:9px}.appearance-menu{position:relative;z-index:20;flex:0 0 auto}.appearance-menu>summary{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 11px;border:1px solid #d3dfe4;border-radius:8px;background:#fff;color:#33586a;font:inherit;font-size:11px;font-weight:650;white-space:nowrap;cursor:pointer;list-style:none;transition:background .15s,border-color .15s}.appearance-menu>summary::-webkit-details-marker{display:none}.appearance-menu>summary:hover,.appearance-menu[open]>summary{background:#eef6f4;border-color:#b9d4ce}.appearance-menu>summary:focus-visible{outline:3px solid rgba(20,117,110,.18);outline-offset:2px}.appearance-menu>summary .bi,.button .bi{font-size:14px;flex:0 0 auto}.appearance-popover{position:absolute;top:calc(100% + 8px);right:0;width:min(300px,calc(100vw - 42px));padding:13px;border:1px solid #d7e2e6;border-radius:10px;background:white;box-shadow:0 10px 28px rgba(24,49,69,.18);z-index:30}.appearance-popover .field{margin-bottom:24px}.appearance-popover .field select{height:36px}.appearance-popover .size-toggle{font-size:10px}.appearance-popover .size-toggle+.size-toggle{margin-left:18px}.appearance-popover .size-toggle span{white-space:nowrap}.button{display:inline-flex;align-items:center;justify-content:center;gap:7px}
     .pmid-box{display:block;min-width:0;margin:17px 0 0;padding:0;border:0;border-radius:0;background:transparent}.pmid-content{padding:4px 2px 0}.pmid-content>.paper-sort{display:block;margin:0 0 9px auto}
   </style>
@@ -46,6 +47,7 @@
             <div class="metric" title="Sum of records returned by the per-species PubMed searches; one PMID may occur in searches for multiple species."><strong class="metric-value" id="searchRecordCount">—</strong><span class="metric-label">PubMed search records</span></div>
           </div>
           <div class="plot-count" id="visibleSpeciesCount">Species map</div>
+          <button class="csv-download" id="downloadPathogensCsv" type="button" aria-label="Download CSV of all pathogens, taxonomy, and Pathogenic Interest Index calculations" title="Download all pathogens and their taxonomy, Pathogenic Interest Index, and calculation inputs as CSV"><i class="bi bi-download" aria-hidden="true"></i></button>
         </div>
         <div class="explorer-controls">
           <div class="control-grid">
@@ -74,6 +76,37 @@
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const formatNumber = (value) => value == null ? '—' : Number(value).toLocaleString();
     const formatFraction = (value) => value == null ? 'Not scored' : `${(Number(value) * 100).toFixed(0)}% yes`;
+    function csvCell(value) {
+      const text = value == null ? '' : String(value);
+      return `"${text.replaceAll('"', '""')}"`;
+    }
+    function downloadPathogensCsv() {
+      const taxonomyRanks = dataset.taxonomy_levels;
+      const eligible = dataset.species.filter((record) => Number(record.n_causation || 0) > 0 && Number(record.n_sampled || 0) > 0 && Number(record.n_articles || 0) > 0);
+      const maximumLogEstimate = eligible.reduce((maximum, record) => {
+        const estimate = Number(record.n_causation) / Number(record.n_sampled) * Number(record.n_articles);
+        return Math.max(maximum, Math.log(estimate));
+      }, 0);
+      const headers = ['species', ...taxonomyRanks.map((rank) => `taxonomy_${rank}`), 'pathogenic_interest_index', 'pathogen_supporting_pmids_n_causation', 'abstracts_fetched_n_sampled', 'pubmed_search_records_n_articles', 'estimated_pathogen_supporting_pmids', 'log_estimated_pathogen_supporting_pmids', 'maximum_log_estimated_pathogen_supporting_pmids'];
+      const rows = [...eligible].sort((a, b) => a.species.localeCompare(b.species)).map((record) => {
+        const causation = Number(record.n_causation);
+        const sampled = Number(record.n_sampled);
+        const articles = Number(record.n_articles);
+        const estimate = causation / sampled * articles;
+        const logEstimate = Math.log(estimate);
+        const index = maximumLogEstimate > 0 ? logEstimate / maximumLogEstimate : 0;
+        return [record.species, ...taxonomyRanks.map((rank) => record.taxonomy?.[rank] || ''), index, causation, sampled, articles, estimate, logEstimate, maximumLogEstimate];
+      });
+      const csv = [headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n');
+      const url = URL.createObjectURL(new Blob(['\ufeff', csv], {type: 'text/csv;charset=utf-8'}));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'pathogen-atlas-pathogenic-interest-index.csv';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
     const palette = ['#2166ac','#e08214','#1b9e77','#7570b3','#d95f02','#66a61e','#e7298a','#1f9e89','#a6761d','#386cb0','#f0027f','#7fc97f','#beaed4','#fdc086','#ffff99','#bf5b17','#80b1d3','#fb8072','#8dd3c7','#bebada'];
     const extraColorScales = {
       Inferno: [[0,'#000004'],[0.1111,'#1b0c41'],[0.2222,'#4a0c6b'],[0.3333,'#781c6d'],[0.4444,'#a52c60'],[0.5556,'#cf4446'],[0.6667,'#ed6925'],[0.7778,'#fb9b06'],[0.8889,'#f7d13d'],[1,'#fcffa4']],
@@ -737,6 +770,7 @@
       byId('sizeByPathogenicIndex').addEventListener('change', renderMap);
       byId('search').addEventListener('input', renderMap);
       byId('minPathogenPmids').addEventListener('input', renderMap);
+      byId('downloadPathogensCsv').addEventListener('click', downloadPathogensCsv);
       byId('resetView').addEventListener('click', () => Plotly.relayout(byId('map'), {'xaxis.autorange': true, 'yaxis.autorange': true}));
       if (dataset.species.some((record) => record.species === 'Salmonella enterica')) {
         selectSpecies('Salmonella enterica');
