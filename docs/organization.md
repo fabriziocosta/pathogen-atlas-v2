@@ -221,7 +221,7 @@ data/04_tables/release/
 
 This phase is the boundary between data production and downstream consumers. The web app, paper figures, and reports should use the release tables from this phase rather than pulling directly from raw or interim data.
 
-`pathogenic_index.parquet` defines the V2 sampled-evidence metric: estimate
+`pathogenic_index.parquet` defines the V2 Pathogenic Interest Index: estimate
 accepted pathogen evidence as Pathogen supporting PMIDs (`n_causation`) divided
 by Abstracts fetched (`n_sampled`), multiplied by PubMed search records
 (`n_articles`); take its natural logarithm, then normalize by the maximum
@@ -278,7 +278,7 @@ question probabilities are thresholded at the configured value (currently
 “no”. The pipeline imputes missing species-question values with that feature's
 mean across species, removes all-missing and constant features, and standardizes
 the remaining features before computing Euclidean distances. Species names,
-taxonomy, and pathogenic index are not inputs to the embedding.
+taxonomy, and Pathogenic Interest Index are not inputs to the embedding.
 
 IMSTE (Iterated Minimum Spanning Tree Embedding) uses the configured FAMST
 method to construct a sparse, approximate ranked spanning-tree graph over those

@@ -1,4 +1,4 @@
-"""Define and compute the V2 species-level pathogen-evidence index."""
+"""Define and compute the V2 species-level Pathogenic Interest Index."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ import pandas as pd
 
 
 INDEX_INPUT_COLUMNS = ("canonical_species", "n_causation", "n_articles", "n_sampled")
-PATHOGENIC_INDEX_VERSION = "pathogenic-index-v2"
+PATHOGENIC_INDEX_VERSION = "pathogenic-interest-index-v2"
 PATHOGENIC_INDEX_DEFINITION = (
-    "n_causation counts species–PMID decisions accepted at the Phase 3 threshold; "
+    "Pathogenic Interest Index (V2): n_causation counts species–PMID decisions accepted at the Phase 3 threshold; "
     "n_sampled counts abstracts scored; n_articles counts full PubMed hits. Estimate "
     "accepted evidence as n_causation / n_sampled * n_articles, take its natural "
     "logarithm, and normalize by the largest species log estimate. Set the index "
@@ -18,7 +18,7 @@ PATHOGENIC_INDEX_DEFINITION = (
 
 
 def build_pathogenic_index(species_summary: pd.DataFrame) -> pd.DataFrame:
-    """Estimate the V2 normalized pathogenic index from sampled evidence.
+    """Estimate the V2 normalized Pathogenic Interest Index from sampled evidence.
 
     Estimate total accepted pathogen evidence as
     ``n_causation / n_sampled * n_articles``, take its natural logarithm, and
@@ -27,7 +27,7 @@ def build_pathogenic_index(species_summary: pd.DataFrame) -> pd.DataFrame:
     """
     missing = set(INDEX_INPUT_COLUMNS) - set(species_summary.columns)
     if missing:
-        raise ValueError(f"Species summary is missing pathogenic-index fields: {sorted(missing)}")
+        raise ValueError(f"Species summary is missing Pathogenic Interest Index input fields: {sorted(missing)}")
 
     frame = species_summary[list(INDEX_INPUT_COLUMNS)].copy()
     if frame["canonical_species"].duplicated().any():

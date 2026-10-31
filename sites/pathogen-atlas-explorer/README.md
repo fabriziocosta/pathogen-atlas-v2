@@ -38,11 +38,11 @@ selected feature** section lists the accepted pathogen-evidence PMIDs that were
 answered yes for the selected feature, using the same confidence and sorting
 controls as the pathogen-supporting PMID list. Features without scored answers
 are marked as unscored.
-Each selected species shows its V2 pathogenic index. Enable **Size by
-pathogenic index** to scale point area by its normalized score; clear it to
+Each selected species shows its V2 **Pathogenic Interest Index**. Enable
+**Size by Pathogenic Interest Index** to scale point area by its normalized score; clear it to
 return to uniform point sizes.
 The map opens colored by the Epidemiology feature with reversed Inferno and
-pathogenic-index sizing enabled.
+Pathogenic Interest Index sizing enabled.
 
 ## Build the static data
 
@@ -67,7 +67,7 @@ accepted evidence, taxonomy, feature matrix, and saved IMSTE coordinates. It
 also writes compact species-keyed files under `dist/evidence/`; these contain
 only accepted PubMed IDs, titles, years, and DOI values. The build stops if
 the coordinate table has duplicate species or the evidence table has no
-acceptance flag, and includes `pathogenic_index.parquet` for marker sizing.
+acceptance flag, and includes the `pathogenic_index.parquet` data table for Pathogenic Interest Index marker sizing.
 The payload includes total PubMed search records and the Wikipedia URL from the
 lookup table. Rebuild it after updating the Phase 4 tables or rerunning the
 IMSTE embedding.

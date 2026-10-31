@@ -63,9 +63,9 @@ def build_payload(
     if not required_evidence.issubset(evidence.columns):
         raise ValueError("Evidence table needs canonical_species and pmid.")
     if not {"canonical_species", "pathogenic_index"}.issubset(pathogenic_index.columns):
-        raise ValueError("Pathogenic-index table needs canonical_species and pathogenic_index.")
+        raise ValueError("Pathogenic Interest Index table needs canonical_species and pathogenic_index.")
     if pathogenic_index["canonical_species"].duplicated().any():
-        raise ValueError("Pathogenic-index table must contain exactly one row per species.")
+        raise ValueError("Pathogenic Interest Index table must contain exactly one row per species.")
     index_by_species = pathogenic_index.set_index("canonical_species")["pathogenic_index"].to_dict()
     wikipedia_by_species: dict[str, str | None] = {}
     if wikipedia_links is not None:
@@ -202,10 +202,10 @@ def build_payload(
     for point in coordinate_rows.sort_values("canonical_species").itertuples(index=False):
         name = str(point.canonical_species)
         if name not in index_by_species:
-            raise ValueError(f"Pathogenic-index table has no row for plotted species {name!r}.")
+            raise ValueError(f"Pathogenic Interest Index table has no row for plotted species {name!r}.")
         index_value = as_optional_number(index_by_species[name])
         if index_value is None or not 0 <= float(index_value) <= 1:
-            raise ValueError(f"Pathogenic index for {name!r} must be a finite value between zero and one.")
+            raise ValueError(f"Pathogenic Interest Index for {name!r} must be a finite value between zero and one.")
         feature_row = feature_by_species.get(name, {})
         summary_row = summary_by_species.get(name, {})
         taxonomy = {rank: clean_text(summary_row.get(rank)) for rank in TAXONOMY_LEVELS if rank in summary_columns}

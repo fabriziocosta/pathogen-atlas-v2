@@ -24,7 +24,7 @@ classification, search for a species or taxonomic group, and select a point to
 inspect its taxonomy and supporting PubMed records. Each record links to
 PubMed and includes the model confidence used in the Atlas assessment.
 
-The explorer also includes a **Pathogenic index** to summarize the strength of
+The explorer also includes a **Pathogenic Interest Index** to summarize the strength of
 supporting evidence in the context of how many abstracts were fetched and how
 many records the literature search found. Point size can be toggled to show
 this index.

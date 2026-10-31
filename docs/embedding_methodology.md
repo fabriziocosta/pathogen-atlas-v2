@@ -87,7 +87,7 @@ The implementation initializes coordinates with small random values, updates the
 
 The generated `species_feature_space_coordinates.parquet` stores the learned `imste_1` and `imste_2` values keyed by canonical species. Those coordinates are also used by the interactive explorer, so each species has one precomputed map position. Axis 1 and axis 2 are learned coordinates, not named biological gradients. Their signs, rotation, and scale have no standalone interpretation; the map is intended to show relative structure in the expert-feature profiles.
 
-Coloring by an expert feature uses its observed, unstandardized `fraction_yes` value from the original feature matrix, from 0 to 1. Zero and unscored values are displayed in gray. This means the map geometry and the color encodings serve different purposes: standardized values determine distances and coordinates, while the original prevalence makes the selected feature's meaning readable. Taxonomy and pathogenic-index sizing are also display overlays; neither is used to compute the IMSTE coordinates.
+Coloring by an expert feature uses its observed, unstandardized `fraction_yes` value from the original feature matrix, from 0 to 1. Zero and unscored values are displayed in gray. This means the map geometry and the color encodings serve different purposes: standardized values determine distances and coordinates, while the original prevalence makes the selected feature's meaning readable. Taxonomy and Pathogenic Interest Index sizing are also display overlays; neither is used to compute the IMSTE coordinates.
 
 ## Outputs and reproducibility
 
