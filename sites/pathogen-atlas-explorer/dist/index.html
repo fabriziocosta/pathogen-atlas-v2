@@ -7,45 +7,56 @@
   <title>Pathogen Atlas Explorer</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
-    :root{color-scheme:light;--ink:#183153;--muted:#5e718b;--line:#dbe4ef;--paper:#f5f8fc;--blue:#2166ac;--teal:#178879}
-    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
-    .shell{max-width:1600px;margin:0 auto;padding:28px 30px 36px}.topline{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:750;color:#637a99}.badge{font-size:12px;background:#e7f0fb;color:#275d94;padding:7px 11px;border-radius:999px;white-space:nowrap}
-    h1{font-size:30px;letter-spacing:-.035em;margin:0 0 8px}.intro{margin:0 0 17px;color:var(--muted);font-size:14px;line-height:1.55;max-width:970px}.summary{display:flex;gap:22px;flex-wrap:wrap;margin:12px 0 16px;padding:13px 16px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 18px rgba(28,56,94,.04)}.metric{display:flex;gap:7px;align-items:baseline}.metric strong{font-size:15px}.metric span{font-size:11px;color:var(--muted)}
-    .workspace{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(350px,.75fr);gap:14px;align-items:start}.card{background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:0 4px 18px rgba(28,56,94,.04);min-width:0}.chart-card{padding:14px 15px 8px}.controls{display:grid;grid-template-columns:minmax(180px,1.1fr) minmax(160px,1fr) minmax(135px,.8fr) minmax(155px,auto) auto;gap:11px;align-items:end;margin-bottom:5px}.field label{display:block;font-size:11px;font-weight:700;color:#526a86;margin:0 0 5px}.field input,.field select{width:100%;height:38px;border:1px solid #ccd7e5;border-radius:8px;background:#fff;padding:0 10px;color:var(--ink);font:inherit;font-size:13px}.field input:focus,.field select:focus{outline:3px solid #bfd7f3;border-color:#5284b4}.field select:disabled{background:#f2f5f9;color:#8998aa}.size-toggle{display:flex;align-items:center;gap:8px;height:38px;color:#526a86;font-size:12px;font-weight:650;white-space:nowrap;cursor:pointer}.size-toggle input{width:16px;height:16px;margin:0;accent-color:#2166ac}.button{height:38px;border:1px solid #c9d6e5;border-radius:8px;padding:0 13px;background:#fff;color:#24486d;font-weight:650;font-size:12px;cursor:pointer}.button:hover{background:#f2f6fb}#map{height:min(70vh,790px);min-height:520px;width:100%}.chart-hint{margin:0 5px 8px;color:var(--muted);font-size:11px;line-height:1.5}
-    .details{padding:17px 19px;position:sticky;top:14px;max-height:calc(100vh - 28px);overflow:auto}.details h2{font-size:16px;margin:0 0 5px}.placeholder{color:var(--muted);font-size:13px;line-height:1.55;margin:10px 0}.species-name{font-size:17px;font-weight:740;line-height:1.3;overflow-wrap:anywhere}.species-caption{font-size:11px;color:var(--muted);margin-top:4px}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:15px 0}.stat{background:#f5f8fc;border:1px solid #e7edf4;border-radius:8px;padding:9px}.stat strong{display:block;font-size:14px}.stat span{display:block;margin-top:3px;color:var(--muted);font-size:10px;line-height:1.3}.section-title{font-size:12px;font-weight:750;margin:16px 0 7px}.taxonomy{display:grid;grid-template-columns:80px minmax(0,1fr);gap:5px 8px;font-size:11px}.taxonomy dt{color:var(--muted)}.taxonomy dd{margin:0;overflow-wrap:anywhere}.pmid-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.paper-tools{display:flex;align-items:center;gap:7px}.pmid-head .count{color:var(--muted);font-weight:550;font-size:10px;white-space:nowrap}.paper-sort{max-width:130px;height:28px;border:1px solid #ccd7e5;border-radius:6px;background:#fff;padding:0 6px;color:#526a86;font:inherit;font-size:10px}.pmids{display:grid;gap:7px;margin-top:8px}.paper{border:1px solid #e2eaf3;border-radius:8px;padding:9px 10px;background:#fbfcfe}.paper-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.paper a{color:#1760a0;font-size:12px;font-weight:700;text-decoration:none;font-variant-numeric:tabular-nums}.paper a:hover{text-decoration:underline}.paper-confidence{color:#526a86;font-size:10px;font-weight:650;white-space:nowrap;font-variant-numeric:tabular-nums}.paper-title{font-size:11px;line-height:1.4;margin-top:4px;color:#344e6c}.paper-meta{font-size:10px;color:var(--muted);margin-top:3px}.empty{color:var(--muted);font-size:12px}.error{padding:24px;color:#a13232}.foot{font-size:10px;color:#718199;margin:13px 2px 0;line-height:1.5}
-    @media(max-width:1050px){.workspace{grid-template-columns:1fr}.details{position:static;max-height:none}.controls{grid-template-columns:minmax(220px,1.3fr) minmax(170px,1fr) minmax(155px,auto)}#map{height:64vh;min-height:480px}}
-    @media(max-width:600px){.shell{padding:19px 12px 25px}h1{font-size:25px}.topline{align-items:flex-start}.badge{font-size:10px}.summary{gap:10px 16px}.controls{grid-template-columns:1fr 1fr}.field:first-child{grid-column:1/-1}.size-toggle,.button{grid-column:1/-1}.button{width:100%}#map{height:480px;min-height:480px}.chart-card{padding:10px 7px 5px}.details{padding:14px}}
+    :root{color-scheme:light;--ink:#132a43;--muted:#63758b;--line:#dce5ed;--canvas:#f1f5f6;--surface:#fff;--teal:#14756e;--teal-dark:#0f625d;--mint:#eaf5f2;--shadow:0 8px 28px rgba(24,49,69,.055)}
+    *{box-sizing:border-box}body{margin:0;background:var(--canvas);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+    .shell{max-width:1780px;margin:0 auto;padding:30px clamp(18px,3vw,48px) 42px}.topline{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}.brand{display:flex;align-items:center;gap:10px}.brand-mark{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--teal);color:white;font-size:14px;font-weight:800}.eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:10px;font-weight:780;color:#567083}.badge{display:inline-flex;align-items:center;gap:8px;border:1px solid #d8e8e5;border-radius:999px;background:#f7fbfa;color:#536f70;padding:7px 11px;font-size:10px;font-weight:650;white-space:nowrap}.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:#43a58f}
+    h1{font-size:clamp(28px,3vw,40px);letter-spacing:-.045em;line-height:1.08;margin:0 0 10px}.intro{margin:0;color:var(--muted);font-size:14px;line-height:1.65;max-width:980px}.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:22px 0 18px}.metric{display:flex;align-items:center;gap:14px;min-height:76px;padding:14px 17px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 8px rgba(24,49,69,.025)}.metric-value{display:block;color:var(--teal-dark);font-size:23px;font-weight:780;letter-spacing:-.04em;font-variant-numeric:tabular-nums}.metric-label{display:block;color:var(--muted);font-size:11px;line-height:1.35}
+    .workspace{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(350px,.78fr);gap:16px;align-items:start}.card{background:var(--surface);border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow);min-width:0;overflow:hidden}.chart-card{padding:0}.panel-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:20px 22px 15px}.panel-heading h2{margin:0;font-size:16px;letter-spacing:-.02em}.panel-heading p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.45}.plot-count{flex:0 0 auto;padding:7px 10px;border-radius:8px;background:#f2f7f6;color:#56716d;font-size:10px;font-weight:650;font-variant-numeric:tabular-nums}
+    .explorer-controls{padding:15px 20px 14px;background:#f8fafb;border-top:1px solid #edf1f3;border-bottom:1px solid #e9eef0}.control-grid{display:grid;grid-template-columns:minmax(210px,1.25fr) minmax(190px,1fr) minmax(170px,.88fr);gap:12px;align-items:end}.field label{display:block;font-size:10px;font-weight:720;color:#52677b;margin:0 0 6px}.field input,.field select{width:100%;height:40px;border:1px solid #d6e0e6;border-radius:8px;background:#fff;padding:0 11px;color:var(--ink);font:inherit;font-size:12px;transition:border-color .15s,box-shadow .15s}.field input:focus,.field select:focus,.paper-sort:focus{outline:3px solid rgba(20,117,110,.15);border-color:#54968f}.field select:disabled{background:#f0f3f5;color:#98a5ad;cursor:not-allowed}.control-options{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:13px}.toggle-row{display:flex;align-items:center;gap:20px;flex-wrap:wrap}.size-toggle{display:inline-flex;align-items:center;gap:8px;min-height:28px;color:#53697d;font-size:11px;font-weight:620;cursor:pointer}.size-toggle input{width:15px;height:15px;margin:0;accent-color:var(--teal)}.button{height:34px;border:1px solid #d3dfe4;border-radius:8px;padding:0 12px;background:white;color:#33586a;font-weight:650;font-size:11px;cursor:pointer;transition:background .15s,border-color .15s}.button:hover{background:#eef6f4;border-color:#b9d4ce}
+    #map{height:min(68vh,760px);min-height:500px;width:100%}.chart-hint{display:flex;gap:10px;align-items:flex-start;margin:0;padding:13px 20px 15px;border-top:1px solid #edf1f3;background:#fbfcfc;color:#5d7080;font-size:11px;line-height:1.55}.hint-mark{display:grid;place-items:center;flex:0 0 18px;height:18px;margin-top:1px;border-radius:50%;background:var(--mint);color:var(--teal);font-size:11px;font-weight:800}.chart-hint span:last-child{min-width:0}
+    .details{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;padding:20px}.details h2{font-size:15px;margin:0 0 5px;letter-spacing:-.01em}.detail-kicker{margin-bottom:12px;color:#6e8493;font-size:9px;font-weight:760;letter-spacing:.12em;text-transform:uppercase}.placeholder{color:var(--muted);font-size:12px;line-height:1.6;margin:8px 0}.empty-guide{margin-top:23px;padding:13px;border:1px solid #e5edee;border-radius:10px;background:#f7faf9}.empty-guide strong{display:block;margin-bottom:5px;font-size:10px}.empty-guide span{display:block;color:var(--muted);font-size:10px;line-height:1.55}.species-name{font-size:19px;font-weight:760;line-height:1.25;letter-spacing:-.03em;overflow-wrap:anywhere}.species-caption{font-size:10px;color:var(--muted);line-height:1.5;margin-top:6px}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:16px 0}.stat{min-width:0;background:#f6f9f9;border:1px solid #e8eeee;border-radius:9px;padding:9px 8px}.stat strong{display:block;font-size:14px;font-variant-numeric:tabular-nums}.stat span{display:block;margin-top:4px;color:var(--muted);font-size:9px;line-height:1.35}.section-title{font-size:11px;font-weight:740;margin:17px 0 8px}.taxonomy{display:grid;grid-template-columns:75px minmax(0,1fr);gap:6px 8px;font-size:10px}.taxonomy dt{color:#758594}.taxonomy dd{margin:0;font-weight:560;overflow-wrap:anywhere}.pmid-head{display:flex;justify-content:space-between;gap:8px;align-items:center}.paper-tools{display:flex;align-items:center;gap:7px}.pmid-head .count{color:var(--muted);font-weight:560;font-size:9px;white-space:nowrap}.paper-sort{max-width:126px;height:29px;border:1px solid #d7e1e5;border-radius:7px;background:#fff;padding:0 7px;color:#526a7c;font:inherit;font-size:9px}.pmids{display:grid;gap:7px;margin-top:9px}.paper{border:1px solid #e7edef;border-radius:9px;padding:9px 10px;background:#fcfdfd}.paper-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.paper a{color:#176c68;font-size:10px;font-weight:740;text-decoration:none;font-variant-numeric:tabular-nums}.paper a:hover{text-decoration:underline}.paper-confidence{color:#566f75;font-size:9px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}.paper-title{font-size:10px;line-height:1.45;margin-top:4px;color:#344e60}.paper-meta{font-size:9px;color:#778895;margin-top:4px}.empty{color:var(--muted);font-size:11px}.error{padding:24px;color:#a13232}.foot{font-size:10px;color:#82909d;margin:14px 2px 0;line-height:1.55}
+    @media(max-width:1180px){.workspace{grid-template-columns:1fr}.details{position:static;max-height:none}.control-grid{grid-template-columns:minmax(220px,1.25fr) minmax(190px,1fr) minmax(170px,.88fr)}}
+    @media(max-width:760px){.shell{padding:22px 15px 30px}.topline{align-items:flex-start}.summary{gap:8px}.metric{min-height:67px;padding:11px 12px;gap:9px}.metric-value{font-size:19px}.metric-label{font-size:9px}.control-grid{grid-template-columns:1fr 1fr}.control-grid .field:first-child{grid-column:1/-1}.panel-heading{padding:17px 16px 13px}.explorer-controls{padding:13px 15px}.chart-hint{padding:11px 15px}.details{padding:17px}}
+    @media(max-width:520px){.shell{padding:18px 11px 24px}h1{font-size:28px}.intro{font-size:12px}.summary{grid-template-columns:1fr;gap:7px;margin:16px 0}.metric{min-height:52px}.metric-value{min-width:62px}.metric-label{font-size:10px}.topline{gap:8px}.badge{font-size:8px;padding:6px 8px}.control-grid{grid-template-columns:1fr}.control-grid .field:first-child{grid-column:auto}.control-options{align-items:flex-start}.toggle-row{gap:8px 14px}.button{flex:0 0 auto}#map{height:490px;min-height:490px}.paper-tools{gap:5px}.paper-sort{max-width:112px}.stats{gap:5px}.stat{padding:8px 6px}}
   </style>
 </head>
 <body>
   <main class="shell">
-    <div class="topline"><div class="eyebrow">Pathogen Atlas · Evidence explorer</div><div class="badge" id="dataBadge">Loading species data…</div></div>
-    <h1>Human pathogen evidence</h1>
-    <p class="intro">Explore one precomputed IMSTE point per species. Color the map by any expert feature or taxonomic rank, zoom and pan, then click a species to inspect its taxonomy and the PubMed records that passed the human pathogen evidence threshold.</p>
+    <header class="page-header">
+      <div class="topline"><div class="brand"><span class="brand-mark" aria-hidden="true">P</span><div class="eyebrow">Pathogen Atlas <span aria-hidden="true">·</span> Evidence explorer</div></div><div class="badge" id="dataBadge">Loading species data…</div></div>
+      <h1>Human pathogen evidence</h1>
+      <p class="intro">Explore species relationships in the precomputed IMSTE map. Color points by domain-expert features or taxonomy, then select a species to inspect accepted pathogen evidence and its PubMed records.</p>
+    </header>
     <section class="summary" aria-label="Dataset summary">
-      <div class="metric"><strong id="speciesCount">—</strong><span>species with expert profiles</span></div>
-      <div class="metric"><strong id="pmidCount">—</strong><span>species–PMID evidence records</span></div>
-      <div class="metric"><strong id="featureCount">—</strong><span>domain-expert features</span></div>
+      <div class="metric"><strong class="metric-value" id="speciesCount">—</strong><span class="metric-label">species with expert profiles</span></div>
+      <div class="metric"><strong class="metric-value" id="pmidCount">—</strong><span class="metric-label">accepted species–PMID records</span></div>
+      <div class="metric"><strong class="metric-value" id="featureCount">—</strong><span class="metric-label">domain-expert features</span></div>
     </section>
     <section class="workspace">
       <section class="card chart-card" aria-label="Interactive species map">
-        <div class="controls">
-          <div class="field"><label for="search">Find a species</label><input id="search" type="search" placeholder="Search species or taxonomy…" autocomplete="off"></div>
-          <div class="field"><label for="colorBy">Color species by</label><select id="colorBy"></select></div>
-          <div class="field"><label for="colorMap">Feature colormap</label><select id="colorMap"><option value="Viridis">Viridis</option><option value="Cividis">Cividis</option><option value="Plasma">Plasma</option><option value="Inferno">Inferno</option><option value="Magma">Magma</option><option value="Turbo">Turbo</option><option value="RdBu">Red–Blue</option><option value="RdYlBu">Red–Yellow–Blue</option><option value="YlGnBu">Yellow–Green–Blue</option><option value="Blues">Blues</option></select></div>
-          <label class="size-toggle" for="reverseColorMap" title="Reverse the selected continuous feature colormap."><input id="reverseColorMap" type="checkbox"><span>Reverse colormap</span></label>
-          <label class="size-toggle" for="sizeByPathogenicIndex" title="Marker area follows the normalized V1 log pathogenic index, from zero to one."><input id="sizeByPathogenicIndex" type="checkbox"><span>Size by pathogenic index</span></label>
-          <button class="button" id="resetView" type="button">Reset view</button>
+        <div class="panel-heading"><div><h2>Species feature space</h2><p>One fitted IMSTE coordinate per species</p></div><div class="plot-count" id="visibleSpeciesCount">Species map</div></div>
+        <div class="explorer-controls">
+          <div class="control-grid">
+            <div class="field"><label for="search">Search species</label><input id="search" type="search" placeholder="Name or taxonomic group…" autocomplete="off"></div>
+            <div class="field"><label for="colorBy">Color points by</label><select id="colorBy"></select></div>
+            <div class="field"><label for="colorMap">Feature colormap</label><select id="colorMap"><option value="Viridis">Viridis</option><option value="Cividis">Cividis</option><option value="Plasma">Plasma</option><option value="Inferno">Inferno</option><option value="Magma">Magma</option><option value="Turbo">Turbo</option><option value="RdBu">Red–Blue</option><option value="RdYlBu">Red–Yellow–Blue</option><option value="YlGnBu">Yellow–Green–Blue</option><option value="Blues">Blues</option></select></div>
+          </div>
+          <div class="control-options">
+            <div class="toggle-row"><label class="size-toggle" for="reverseColorMap" title="Reverse the selected continuous feature colormap."><input id="reverseColorMap" type="checkbox"><span>Reverse colors</span></label><label class="size-toggle" for="sizeByPathogenicIndex" title="Marker area follows the normalized V1 log pathogenic index, from zero to one."><input id="sizeByPathogenicIndex" type="checkbox"><span>Size by pathogenic index</span></label></div>
+            <button class="button" id="resetView" type="button">Reset map view</button>
+          </div>
         </div>
         <div id="map" role="img" aria-label="Zoomable IMSTE species feature map"></div>
-        <p class="chart-hint" id="mapHint">Hover for species details. Click a point to load its pathogen supporting PMIDs and PubMed links. Feature colors show the fraction of scored abstracts Jev marked yes. Enable point sizing to compare the V1 pathogenic index.</p>
+        <div class="chart-hint" aria-live="polite"><span class="hint-mark" aria-hidden="true">i</span><span id="mapHint">Hover for species details. Click a point to load accepted pathogen evidence and PubMed links.</span></div>
       </section>
       <aside class="card details" id="details" aria-live="polite">
-        <h2>Species details</h2>
-        <p class="placeholder">Click any point on the map to inspect its taxonomic classification and all accepted evidence abstracts.</p>
+        <div class="detail-kicker">Species profile</div>
+        <h2>Select a species</h2>
+        <p class="placeholder">Choose a point on the map to see its taxonomy, accepted pathogen evidence, and publication details.</p>
+        <div class="empty-guide"><strong>Explore the map</strong><span>Hover to preview a species. Select it to browse supporting PubMed papers and Jev confidence scores.</span></div>
       </aside>
     </section>
-    <p class="foot">Coordinates are fitted once per species in Phase 5 with IMSTE from the standardized species-by-feature matrix. Color values and accepted pathogen evidence links come from the current Phase 4 release. Supporting PubMed records load on selection from static files and are cached in your browser.</p>
+    <p class="foot">IMSTE coordinates are fitted once per species from the domain-expert feature matrix. Accepted pathogen evidence comes from the Phase 4 release; PubMed details load when selected and are cached in your browser.</p>
   </main>
   <script>
   (() => {
@@ -250,8 +261,15 @@
     function renderMap() {
       const records = filteredRecords();
       const selection = currentColorSelection();
+      const sizeByIndex = byId('sizeByPathogenicIndex').checked;
+      const markerSizing = sizeByIndex
+        ? {sizemode: 'area', sizeref: 1 / (24 * 24), sizemin: 4}
+        : {size: 8};
       byId('colorMap').disabled = selection.kind !== 'feature';
       byId('reverseColorMap').disabled = selection.kind !== 'feature';
+      byId('visibleSpeciesCount').textContent = records.length === dataset.species.length
+        ? `${formatNumber(records.length)} species`
+        : `${formatNumber(records.length)} / ${formatNumber(dataset.species.length)} species`;
       const traces = selection.kind === 'feature'
         ? [makeTrace(records, selection), makeTrace(records, selection, 'zero'), makeTrace(records, selection, 'missing')]
         : [makeTrace(records, selection)];
@@ -314,9 +332,10 @@
       selectedSpecies = name;
       const details = byId('details');
       details.replaceChildren();
-      const heading = document.createElement('h2');
-      heading.textContent = 'Species details';
-      details.append(heading);
+      const kicker = document.createElement('div');
+      kicker.className = 'detail-kicker';
+      kicker.textContent = 'Species profile';
+      details.append(kicker);
       const title = document.createElement('div');
       title.className = 'species-name';
       title.textContent = record.species;
