@@ -53,6 +53,7 @@ data/**/*.svg
 !data/**/.gitkeep
 
 # Generated reports and plot artifacts
+data/05_plots/**/*.png
 reports/
 *.pdf
 
