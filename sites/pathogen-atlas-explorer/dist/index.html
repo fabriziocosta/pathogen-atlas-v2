@@ -53,7 +53,7 @@
           </div>
           <div class="control-options">
             <div class="toggle-row"><label class="size-toggle" for="sizeByPathogenicIndex" title="Marker area follows the normalized Pathogenic Interest Index, from zero to one."><input id="sizeByPathogenicIndex" type="checkbox" checked><span>Size by Pathogenic Interest Index</span></label><div class="minimum-filter"><label for="minPathogenPmids" title="Only show species with at least this many pathogen supporting PMIDs.">Min supporting PMIDs</label><input id="minPathogenPmids" type="number" min="0" step="1" value="0" inputmode="numeric"></div></div>
-            <div class="control-actions"><details class="appearance-menu"><summary aria-label="Color settings" title="Color settings">Color settings</summary><div class="appearance-popover"><div class="field"><label for="colorMap">Feature colormap</label><select id="colorMap"><option value="Inferno" selected>Inferno</option><option value="Viridis">Viridis</option><option value="Cividis">Cividis</option><option value="Plasma">Plasma</option><option value="Magma">Magma</option><option value="Turbo">Turbo</option><option value="RdBu">Red–Blue</option><option value="RdYlBu">Red–Yellow–Blue</option><option value="YlGnBu">Yellow–Green–Blue</option><option value="Blues">Blues</option></select></div><label class="size-toggle" for="reverseColorMap" title="Reverse the selected continuous feature colormap."><input id="reverseColorMap" type="checkbox" checked><span>Reverse colormap</span></label></div></details><button class="button" id="resetView" type="button">Reset map view</button></div>
+            <div class="control-actions"><details class="appearance-menu"><summary aria-label="Color settings" title="Color settings">Color settings</summary><div class="appearance-popover"><div class="field"><label for="colorMap">Feature colormap</label><select id="colorMap"><option value="Inferno" selected>Inferno</option><option value="Viridis">Viridis</option><option value="Cividis">Cividis</option><option value="Plasma">Plasma</option><option value="Magma">Magma</option><option value="Turbo">Turbo</option><option value="RdBu">Red–Blue</option><option value="RdYlBu">Red–Yellow–Blue</option><option value="YlGnBu">Yellow–Green–Blue</option><option value="Blues">Blues</option></select></div><label class="size-toggle" for="reverseColorMap" title="Reverse the selected continuous feature colormap."><input id="reverseColorMap" type="checkbox" checked><span>Reverse colormap</span></label><label class="size-toggle" for="blackPointEdges" title="Turn on for black circle edges; turn off for white edges."><input id="blackPointEdges" type="checkbox"><span>Black circle edges</span></label></div></details><button class="button" id="resetView" type="button">Reset map view</button></div>
           </div>
         </div>
         <div id="map" role="img" aria-label="Zoomable IMSTE species feature map"></div>
@@ -227,6 +227,7 @@
         if (layer === 'zero') return value != null && Number(value) === 0;
         return value != null && Number(value) > 0;
       });
+      const pointEdgeColor = byId('blackPointEdges').checked ? '#111827' : '#ffffff';
       const sizeByIndex = byId('sizeByPathogenicIndex').checked;
       const markerSizing = sizeByIndex
         ? {size: rows.map((record) => Math.max(0, Number(record.pathogenic_index) || 0)), sizemode: 'area', sizeref: 1 / (24 * 24), sizemin: 4}
@@ -235,7 +236,7 @@
         type: 'scattergl', mode: 'markers',
         x: rows.map((record) => record.x), y: rows.map((record) => record.y),
         customdata: rows.map((record) => customData(record, selection)),
-        marker: {...markerSizing, opacity: 0.84, line: {width: 0.45, color: '#ffffff'}},
+        marker: {...markerSizing, opacity: 0.84, line: {width: 0.45, color: pointEdgeColor}},
         hovertemplate: '<b>%{customdata[0]}</b><br>Domain: %{customdata[1]} · Kingdom: %{customdata[2]}<br>Phylum: %{customdata[3]} · Class: %{customdata[4]}<br>Order: %{customdata[5]} · Family: %{customdata[6]}<br>Genus: %{customdata[7]}<br>PubMed search records: %{customdata[8]}<br>Pathogen supporting PMIDs: %{customdata[9]}<br>Pathogenic Interest Index: %{customdata[10]:.3f}<br>%{customdata[11]}: %{customdata[12]}<extra></extra>',
         hoverlabel: {align: 'left', namelength: 0},
         showlegend: false,
@@ -273,6 +274,7 @@
     function renderMap() {
       const records = filteredRecords();
       const selection = currentColorSelection();
+      const pointEdgeColor = byId('blackPointEdges').checked ? '#111827' : '#ffffff';
       const sizeByIndex = byId('sizeByPathogenicIndex').checked;
       const markerSizing = sizeByIndex
         ? {sizemode: 'area', sizeref: 1 / (24 * 24), sizemin: 4}
@@ -299,7 +301,7 @@
             type: 'scattergl', mode: 'markers', name: item.category, legendgroup: selection.key,
             x: indices.map((index) => points.x[index]), y: indices.map((index) => points.y[index]),
             customdata: indices.map((index) => points.customdata[index]),
-            marker: {...categoryMarkerSizing, opacity: 0.84, color: item.color, line: {width: 0.45, color: '#ffffff'}},
+            marker: {...categoryMarkerSizing, opacity: 0.84, color: item.color, line: {width: 0.45, color: pointEdgeColor}},
             hovertemplate: points.hovertemplate,
           });
         }
@@ -729,6 +731,7 @@
       byId('colorBy').addEventListener('change', renderMap);
       byId('colorMap').addEventListener('change', renderMap);
       byId('reverseColorMap').addEventListener('change', renderMap);
+      byId('blackPointEdges').addEventListener('change', renderMap);
       byId('sizeByPathogenicIndex').addEventListener('change', renderMap);
       byId('search').addEventListener('input', renderMap);
       byId('minPathogenPmids').addEventListener('input', renderMap);
