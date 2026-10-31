@@ -7,12 +7,14 @@ need a Python server or database after publication.
 The map has exactly one point per species, using that species’ saved Phase 5
 coordinates, and a domain-expert feature profile. Use
 **Color species by** to select any of the 73 feature prevalences or taxonomy
-ranks from domain through genus. Search by species or taxonomy, zoom and pan
-the map, and click a point to inspect the lineage and the PMIDs accepted by
-the Phase 3 human pathogen evidence threshold. Each PMID opens its PubMed
-record. PMID data is split into small hashed shards and fetched only when a
-species is selected, then cached by the browser. The initial page load contains
-the single species coordinate and feature record per point, not every abstract.
+ranks from domain through genus. Choose a continuous **Feature colormap** for
+numeric features; the selector is disabled for categorical taxonomy colors.
+Search by species or taxonomy, zoom and pan the map, and click a point to
+inspect the lineage and the PMIDs accepted by the Phase 3 human pathogen
+evidence threshold. Each PMID opens its PubMed record. PMID data is split into
+small hashed shards and fetched only when a species is selected, then cached by
+the browser. The initial page load contains the single species coordinate and
+feature record per point, not every abstract.
 Each supporting PMID includes the Jev confidence (`p_yes`) in its details.
 Enable **Size by pathogenic index** to scale point area with the normalized V1
 index; clear it to return to uniform point sizes.
