@@ -8,7 +8,8 @@ The map has exactly one point per species, using that species’ saved Phase 5
 coordinates, and a domain-expert feature profile. Use
 **Color species by** to select any of the 73 feature prevalences or taxonomy
 ranks from domain through genus. Choose a continuous **Feature colormap** for
-numeric features; the selector is disabled for categorical taxonomy colors.
+numeric features and optionally reverse it; both controls are disabled for
+categorical taxonomy colors.
 When a feature is selected, the chart hint shows that concept’s definition
 from the versioned Jev question set in `configs/domain_expert_questions.yaml`.
 Search by species or taxonomy, zoom and pan the map, and click a point to
