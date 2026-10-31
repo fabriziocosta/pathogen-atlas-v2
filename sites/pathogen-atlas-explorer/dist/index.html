@@ -395,7 +395,7 @@
       expertProfile.append(expertSummary);
       const expertIntro = document.createElement('p');
       expertIntro.className = 'expert-profile-intro';
-      expertIntro.textContent = 'Share of scored abstracts answered yes. Select a question to read its definition and exact counts.';
+      expertIntro.textContent = 'Share of scored abstracts answered yes. Select a question to color the map and read its definition and exact counts.';
       expertProfile.append(expertIntro);
       const expertGroups = document.createElement('div');
       expertGroups.className = 'expert-question-groups';
@@ -459,6 +459,8 @@
         button.addEventListener('click', () => {
           expertGroups.querySelectorAll('.expert-question').forEach((item) => item.setAttribute('aria-pressed', 'false'));
           button.setAttribute('aria-pressed', 'true');
+          byId('colorBy').value = `feature:${feature.id}`;
+          renderMap();
           expertDetailCategory.textContent = category.replaceAll('_', ' ');
           expertDetailTitle.textContent = feature.label;
           expertDetailDefinition.textContent = feature.definition;
