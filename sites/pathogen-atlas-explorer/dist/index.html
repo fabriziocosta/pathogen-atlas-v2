@@ -21,7 +21,7 @@
   <main class="shell">
     <div class="topline"><div class="eyebrow">Pathogen Atlas · Evidence explorer</div><div class="badge" id="dataBadge">Loading species data…</div></div>
     <h1>Human pathogen evidence</h1>
-    <p class="intro">Explore species in the two-dimensional IMSTE map of their domain-expert feature profiles. Color the map by any expert feature or taxonomic rank, zoom and pan, then click a species to inspect its taxonomy and accepted evidence PMIDs.</p>
+    <p class="intro">Explore one precomputed IMSTE point per species. Color the map by any expert feature or taxonomic rank, zoom and pan, then click a species to inspect its taxonomy and the PubMed records that passed the human pathogen evidence threshold.</p>
     <section class="summary" aria-label="Dataset summary">
       <div class="metric"><strong id="speciesCount">—</strong><span>species with expert profiles</span></div>
       <div class="metric"><strong id="pmidCount">—</strong><span>species–PMID evidence records</span></div>
@@ -35,14 +35,14 @@
           <button class="button" id="resetView" type="button">Reset view</button>
         </div>
         <div id="map" role="img" aria-label="Zoomable IMSTE species feature map"></div>
-        <p class="chart-hint" id="mapHint">Hover for species details. Click a point to show all accepted evidence PMIDs and PubMed links. Feature colors show the fraction of scored abstracts Jev marked yes.</p>
+        <p class="chart-hint" id="mapHint">Hover for species details. Click a point to load its pathogen supporting PMIDs and PubMed links. Feature colors show the fraction of scored abstracts Jev marked yes.</p>
       </section>
       <aside class="card details" id="details" aria-live="polite">
         <h2>Species details</h2>
         <p class="placeholder">Click any point on the map to inspect its taxonomic classification and all accepted evidence abstracts.</p>
       </aside>
     </section>
-    <p class="foot">Coordinates are fitted in Phase 5 with IMSTE from the standardized species-by-feature matrix. Color values and evidence links come from the current Phase 4 release. The page reads a compact static JSON file in your browser and does not query a server.</p>
+    <p class="foot">Coordinates are fitted once per species in Phase 5 with IMSTE from the standardized species-by-feature matrix. Color values and accepted pathogen evidence links come from the current Phase 4 release. Supporting PubMed records load on selection from static files and are cached in your browser.</p>
   </main>
   <script>
   (() => {
@@ -54,6 +54,26 @@
     let dataset = null;
     let selectedSpecies = null;
     let embedded = false;
+    const evidenceShardCache = new Map();
+
+    async function loadSpeciesEvidence(record) {
+      if (!record.n_pmids) return [];
+      if (!evidenceShardCache.has(record.evidence_shard)) {
+        const request = fetch(`./evidence/${encodeURIComponent(record.evidence_shard)}.json`, {cache: 'force-cache'})
+          .then((response) => {
+            if (!response.ok) throw new Error(`Could not load evidence records (HTTP ${response.status})`);
+            return response.json();
+          });
+        evidenceShardCache.set(record.evidence_shard, request);
+      }
+      try {
+        const shard = await evidenceShardCache.get(record.evidence_shard);
+        return shard[record.species] || [];
+      } catch (error) {
+        evidenceShardCache.delete(record.evidence_shard);
+        throw error;
+      }
+    }
 
     function addColorOptions(data) {
       const select = byId('colorBy');
@@ -107,7 +127,7 @@
     function customData(record, selection) {
       const taxonomy = dataset.taxonomy_levels.map((rank) => record.taxonomy?.[rank] ? `${escapeHtml(rank)}: ${escapeHtml(record.taxonomy[rank])}` : null).filter(Boolean).join(' · ');
       const value = selection.kind === 'feature' ? record.features[selection.index] : record.taxonomy?.[selection.key];
-      return [escapeHtml(record.species), taxonomy, record.n_articles, record.n_causation, record.n_pmids, escapeHtml(selection.label), selection.kind === 'feature' ? formatFraction(value) : escapeHtml(value || 'Unclassified')];
+      return [escapeHtml(record.species), taxonomy, record.n_articles, record.n_pmids, escapeHtml(selection.label), selection.kind === 'feature' ? formatFraction(value) : escapeHtml(value || 'Unclassified')];
     }
 
     function makeTrace(records, selection, missing = false) {
@@ -121,7 +141,7 @@
         x: rows.map((record) => record.x), y: rows.map((record) => record.y),
         customdata: rows.map((record) => customData(record, selection)),
         marker: {size: 8, opacity: 0.84, line: {width: 0.45, color: '#ffffff'}},
-        hovertemplate: '<b>%{customdata[0]}</b><br>%{customdata[1]}<br>Accepted abstracts: %{customdata[3]}<br>Evidence PMIDs: %{customdata[4]}<br>%{customdata[5]}: %{customdata[6]}<extra></extra>',
+        hovertemplate: '<b>%{customdata[0]}</b><br>%{customdata[1]}<br>PubMed search records: %{customdata[2]}<br>Pathogen supporting PMIDs: %{customdata[3]}<br>%{customdata[4]}: %{customdata[5]}<extra></extra>',
         showlegend: false,
       };
       if (selection.kind === 'feature' && missing) {
@@ -163,7 +183,7 @@
         const points = traces[0];
         points.showlegend = false;
         for (const item of categoryRows) {
-          const indices = points.customdata.map((row, index) => row[6] === item.category ? index : -1).filter((index) => index >= 0);
+          const indices = points.customdata.map((row, index) => row[5] === item.category ? index : -1).filter((index) => index >= 0);
           traces.push({
             type: 'scattergl', mode: 'markers', name: item.category, legendgroup: selection.key,
             x: indices.map((index) => points.x[index]), y: indices.map((index) => points.y[index]),
@@ -207,7 +227,7 @@
       });
     }
 
-    function selectSpecies(name) {
+    async function selectSpecies(name) {
       const record = dataset.species.find((item) => item.species === name);
       if (!record) return;
       selectedSpecies = name;
@@ -227,7 +247,7 @@
 
       const stats = document.createElement('div');
       stats.className = 'stats';
-      for (const [value, label] of [[record.n_pmids, 'Evidence PMIDs'], [record.n_articles, 'Articles in acquisition'], [record.n_causation, 'Causation matches']]) {
+      for (const [value, label] of [[record.n_pmids, 'Pathogen supporting PMIDs'], [record.n_articles, 'PubMed search records'], [record.n_sampled, 'Abstracts fetched']]) {
         const stat = document.createElement('div');
         stat.className = 'stat';
         const strong = document.createElement('strong');
@@ -257,21 +277,31 @@
       const papersHeader = document.createElement('div');
       papersHeader.className = 'pmid-head section-title';
       const papersTitle = document.createElement('span');
-      papersTitle.textContent = 'Accepted evidence abstracts';
+      papersTitle.textContent = 'Pathogen supporting abstracts';
       const papersCount = document.createElement('span');
       papersCount.className = 'count';
-      papersCount.textContent = `${record.pmids.length.toLocaleString()} PMID${record.pmids.length === 1 ? '' : 's'}`;
+      papersCount.textContent = `${Number(record.n_pmids || 0).toLocaleString()} PMID${record.n_pmids === 1 ? '' : 's'}`;
       papersHeader.append(papersTitle, papersCount);
       details.append(papersHeader);
       const papers = document.createElement('div');
       papers.className = 'pmids';
-      if (!record.pmids.length) {
-        const empty = document.createElement('div');
-        empty.className = 'empty';
-        empty.textContent = 'No accepted evidence PMIDs are available for this species.';
-        papers.append(empty);
-      }
-      for (const paper of record.pmids) {
+      const loading = document.createElement('div');
+      loading.className = 'empty';
+      loading.textContent = record.n_pmids ? 'Loading pathogen supporting records…' : 'No accepted pathogen evidence PMIDs are available for this species.';
+      papers.append(loading);
+      details.append(papers);
+      renderMap();
+      try {
+        const speciesPapers = await loadSpeciesEvidence(record);
+        if (selectedSpecies !== name) return;
+        papers.replaceChildren();
+        if (!speciesPapers.length) {
+          const empty = document.createElement('div');
+          empty.className = 'empty';
+          empty.textContent = 'No accepted pathogen evidence PMIDs are available for this species.';
+          papers.append(empty);
+        }
+        for (const paper of speciesPapers) {
         const card = document.createElement('article');
         card.className = 'paper';
         const link = document.createElement('a');
@@ -294,9 +324,12 @@
           card.append(meta);
         }
         papers.append(card);
+        }
+      } catch (error) {
+        if (selectedSpecies !== name) return;
+        loading.textContent = 'Could not load this species’ PubMed evidence. Select the species again to retry.';
+        console.error(error);
       }
-      details.append(papers);
-      renderMap();
     }
 
     async function main() {

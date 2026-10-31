@@ -4,11 +4,15 @@ A static Plotly explorer built from the Phase 4 release and the Phase 5 IMSTE
 species coordinates. It runs in the browser with precomputed data and does not
 need a Python server or database after publication.
 
-The map has one point per species with a domain-expert feature profile. Use
+The map has exactly one point per species, using that species’ saved Phase 5
+coordinates, and a domain-expert feature profile. Use
 **Color species by** to select any of the 73 feature prevalences or taxonomy
 ranks from domain through genus. Search by species or taxonomy, zoom and pan
-the map, and click a point to inspect the lineage and all accepted evidence
-PMIDs. Each PMID opens its PubMed record.
+the map, and click a point to inspect the lineage and the PMIDs accepted by
+the Phase 3 human pathogen evidence threshold. Each PMID opens its PubMed
+record. PMID data is split into small hashed shards and fetched only when a
+species is selected, then cached by the browser. The initial page load contains
+the single species coordinate and feature record per point, not every abstract.
 
 ## Build the static data
 
@@ -23,8 +27,11 @@ python sites/pathogen-atlas-explorer/scripts/build_data.py
 
 This writes `sites/pathogen-atlas-explorer/dist/explorer-data.json` from the
 accepted evidence, taxonomy, feature matrix, and saved IMSTE coordinates. It
-includes the accepted PubMed IDs, titles, years, and DOI values. Rebuild it
-after updating the Phase 4 tables or rerunning the IMSTE embedding.
+also writes compact species-keyed files under `dist/evidence/`; these contain
+only accepted PubMed IDs, titles, years, and DOI values. The build stops if
+the coordinate table has duplicate species or the evidence table has no
+acceptance flag. Rebuild it after updating the Phase 4 tables or rerunning the
+IMSTE embedding.
 
 ## Preview locally
 
