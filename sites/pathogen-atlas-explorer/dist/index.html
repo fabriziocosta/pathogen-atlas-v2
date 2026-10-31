@@ -537,7 +537,7 @@
         categoryGrids.get(category).append(button);
       });
       expertProfile.append(expertGroups, expertDetail);
-      details.insertBefore(expertProfile, stats);
+      details.append(expertProfile);
 
       const papersBox = document.createElement('details');
       papersBox.className = 'expert-profile pmid-box';
