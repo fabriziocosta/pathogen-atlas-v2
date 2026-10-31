@@ -42,6 +42,7 @@ def build_payload(
     species_summary: pd.DataFrame,
     feature_matrix: pd.DataFrame,
     coordinates: pd.DataFrame,
+    pathogenic_index: pd.DataFrame,
 ) -> dict[str, Any]:
     """Join release tables into the small client-side explorer contract."""
     required_coordinates = {"canonical_species", "imste_1", "imste_2"}
@@ -53,6 +54,11 @@ def build_payload(
     required_evidence = {"canonical_species", "pmid"}
     if not required_evidence.issubset(evidence.columns):
         raise ValueError("Evidence table needs canonical_species and pmid.")
+    if not {"canonical_species", "pathogenic_index"}.issubset(pathogenic_index.columns):
+        raise ValueError("Pathogenic-index table needs canonical_species and pathogenic_index.")
+    if pathogenic_index["canonical_species"].duplicated().any():
+        raise ValueError("Pathogenic-index table must contain exactly one row per species.")
+    index_by_species = pathogenic_index.set_index("canonical_species")["pathogenic_index"].to_dict()
 
     feature_columns = [column for column in feature_matrix.columns if column.startswith("feature_")]
     feature_summary_path = RELEASE / "species_feature_summary.parquet"
@@ -116,6 +122,11 @@ def build_payload(
     records: list[dict[str, Any]] = []
     for point in coordinate_rows.sort_values("canonical_species").itertuples(index=False):
         name = str(point.canonical_species)
+        if name not in index_by_species:
+            raise ValueError(f"Pathogenic-index table has no row for plotted species {name!r}.")
+        index_value = as_optional_number(index_by_species[name])
+        if index_value is None or not 0 <= float(index_value) <= 1:
+            raise ValueError(f"Pathogenic index for {name!r} must be a finite value between zero and one.")
         feature_row = feature_by_species.get(name, {})
         summary_row = summary_by_species.get(name, {})
         taxonomy = {rank: clean_text(summary_row.get(rank)) for rank in TAXONOMY_LEVELS if rank in summary_columns}
@@ -130,6 +141,7 @@ def build_payload(
                 "n_sampled": as_optional_number(summary_row.get("n_sampled")),
                 "n_causation": as_optional_number(summary_row.get("n_causation")),
                 "n_pmids": len(paper_by_species.get(name, [])),
+                "pathogenic_index": float(index_value),
                 "evidence_shard": shard,
                 "features": [as_optional_number(feature_row.get(f"feature_{question_id}")) for question_id in feature_ids],
             }
@@ -163,6 +175,7 @@ def main() -> None:
     required_paths = [
         RELEASE / "evidence_records.parquet",
         RELEASE / "species_summary.parquet",
+        RELEASE / "pathogenic_index.parquet",
         RELEASE / "species_feature_matrix.parquet",
         RELEASE / "species_feature_summary.parquet",
         COORDINATES,
@@ -177,6 +190,7 @@ def main() -> None:
         pd.read_parquet(RELEASE / "species_summary.parquet"),
         pd.read_parquet(RELEASE / "species_feature_matrix.parquet"),
         pd.read_parquet(COORDINATES),
+        pd.read_parquet(RELEASE / "pathogenic_index.parquet"),
     )
     evidence_shards = payload.pop("_evidence_shard_payloads")
     for stale_shard in EVIDENCE_DIR.glob("*.json") if EVIDENCE_DIR.exists() else []:

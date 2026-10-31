@@ -13,6 +13,8 @@ the Phase 3 human pathogen evidence threshold. Each PMID opens its PubMed
 record. PMID data is split into small hashed shards and fetched only when a
 species is selected, then cached by the browser. The initial page load contains
 the single species coordinate and feature record per point, not every abstract.
+Enable **Size by pathogenic index** to scale point area with the normalized V1
+index; clear it to return to uniform point sizes.
 
 ## Build the static data
 
@@ -30,8 +32,8 @@ accepted evidence, taxonomy, feature matrix, and saved IMSTE coordinates. It
 also writes compact species-keyed files under `dist/evidence/`; these contain
 only accepted PubMed IDs, titles, years, and DOI values. The build stops if
 the coordinate table has duplicate species or the evidence table has no
-acceptance flag. Rebuild it after updating the Phase 4 tables or rerunning the
-IMSTE embedding.
+acceptance flag, and includes `pathogenic_index.parquet` for marker sizing.
+Rebuild it after updating the Phase 4 tables or rerunning the IMSTE embedding.
 
 ## Preview locally
 

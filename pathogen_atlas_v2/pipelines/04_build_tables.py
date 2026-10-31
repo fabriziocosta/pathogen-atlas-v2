@@ -15,6 +15,7 @@ from pathogen_atlas_v2.notebook_utils import notebook_phase_parameters
 from pathogen_atlas_v2.tables.abstract_counts import build_abstract_count_table
 from pathogen_atlas_v2.tables.emergence_tables import build_emergence_table
 from pathogen_atlas_v2.tables.feature_tables import build_feature_tables, build_species_feature_matrix
+from pathogen_atlas_v2.tables.pathogenic_index import build_pathogenic_index
 from pathogen_atlas_v2.tables.species_table import build_species_summary
 from pathogen_atlas_v2.tables.web_exports import export_release_tables
 
@@ -105,6 +106,7 @@ def build_phase4_tables(config: dict[str, Any] | None = None) -> dict[str, Any]:
         expert["pmid"] = expert["pmid"].astype(str)
         expert = expert.merge(evidence_keys, on=["pmid", "canonical_species"], how="inner")
     species_summary = build_species_summary(abstracts, matches, evidence, canonical_pmid_index, sampled_pmid_index)
+    pathogenic_index = build_pathogenic_index(species_summary)
     taxonomy_path = _path(settings, "species_taxonomy_path", "data/01_species/release/species_taxonomy.parquet")
     if taxonomy_path.exists():
         taxonomy = pd.read_parquet(taxonomy_path).drop_duplicates("canonical_species")
@@ -124,6 +126,7 @@ def build_phase4_tables(config: dict[str, Any] | None = None) -> dict[str, Any]:
     tables = {
         "evidence_records": evidence.sort_values(["canonical_species", "pmid"]).reset_index(drop=True),
         "species_summary": species_summary,
+        "pathogenic_index": pathogenic_index,
         "domain_expert_answers": feature_long,
         "species_feature_summary": feature_summary,
         "species_feature_matrix": feature_matrix,

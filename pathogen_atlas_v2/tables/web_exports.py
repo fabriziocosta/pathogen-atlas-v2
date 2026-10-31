@@ -14,6 +14,7 @@ from pathogen_atlas_v2.common.io import project_root, resolve_path
 WEB_EXPORT_TABLES = (
     "abstract_counts",
     "emergence",
+    "pathogenic_index",
     "species_feature_matrix",
     "species_feature_summary",
     "species_summary",
