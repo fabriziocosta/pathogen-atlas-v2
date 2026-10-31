@@ -100,6 +100,7 @@ def build_payload(
             {
                 "pmid": str(record["pmid"]),
                 "title": clean_text(record.get("title")),
+                "date": clean_text(record.get("publication_date")),
                 "year": as_optional_number(record.get("publication_year")),
                 "doi": clean_text(record.get("doi")),
                 "confidence": as_optional_number(record.get("p_yes")),
