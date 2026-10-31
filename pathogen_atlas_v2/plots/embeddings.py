@@ -119,6 +119,15 @@ def plot_species_feature_space(
         device=str(device),
     )
     coordinates = mapper.fit_transform(values)
+    coordinate_table = pd.DataFrame(
+        {
+            "canonical_species": species,
+            "imste_1": coordinates[:, 0],
+            "imste_2": coordinates[:, 1],
+        }
+    )
+    coordinate_path = output_path.with_name("species_feature_space_coordinates.parquet")
+    coordinate_table.to_parquet(coordinate_path, index=False)
 
     panel_count = min(max(1, int(feature_panels)), len(variable))
     selected_features = variable.sort_values(ascending=False).head(panel_count).index.tolist()
@@ -214,6 +223,7 @@ def plot_species_feature_space(
         "device": str(device),
         "n_species": len(species),
         "n_features": len(variable),
+        "coordinates_path": str(coordinate_path),
         "feature_columns_used": [str(column) for column in variable.index],
         "feature_panels": [str(column) for column in selected_features],
         "missing_values": "imputed to the feature mean, then standardized",

@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore human pathogen evidence, domain-expert features, taxonomy, and PubMed records by species.">
+  <title>Pathogen Atlas Explorer</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    :root{color-scheme:light;--ink:#183153;--muted:#5e718b;--line:#dbe4ef;--paper:#f5f8fc;--blue:#2166ac;--teal:#178879}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+    .shell{max-width:1600px;margin:0 auto;padding:28px 30px 36px}.topline{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:750;color:#637a99}.badge{font-size:12px;background:#e7f0fb;color:#275d94;padding:7px 11px;border-radius:999px;white-space:nowrap}
+    h1{font-size:30px;letter-spacing:-.035em;margin:0 0 8px}.intro{margin:0 0 17px;color:var(--muted);font-size:14px;line-height:1.55;max-width:970px}.summary{display:flex;gap:22px;flex-wrap:wrap;margin:12px 0 16px;padding:13px 16px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 18px rgba(28,56,94,.04)}.metric{display:flex;gap:7px;align-items:baseline}.metric strong{font-size:15px}.metric span{font-size:11px;color:var(--muted)}
+    .workspace{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(350px,.75fr);gap:14px;align-items:start}.card{background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:0 4px 18px rgba(28,56,94,.04);min-width:0}.chart-card{padding:14px 15px 8px}.controls{display:grid;grid-template-columns:minmax(190px,1.2fr) minmax(200px,1fr) auto;gap:11px;align-items:end;margin-bottom:5px}.field label{display:block;font-size:11px;font-weight:700;color:#526a86;margin:0 0 5px}.field input,.field select{width:100%;height:38px;border:1px solid #ccd7e5;border-radius:8px;background:#fff;padding:0 10px;color:var(--ink);font:inherit;font-size:13px}.field input:focus,.field select:focus{outline:3px solid #bfd7f3;border-color:#5284b4}.button{height:38px;border:1px solid #c9d6e5;border-radius:8px;padding:0 13px;background:#fff;color:#24486d;font-weight:650;font-size:12px;cursor:pointer}.button:hover{background:#f2f6fb}#map{height:min(70vh,790px);min-height:520px;width:100%}.chart-hint{margin:0 5px 8px;color:var(--muted);font-size:11px;line-height:1.5}
+    .details{padding:17px 19px;position:sticky;top:14px;max-height:calc(100vh - 28px);overflow:auto}.details h2{font-size:16px;margin:0 0 5px}.placeholder{color:var(--muted);font-size:13px;line-height:1.55;margin:10px 0}.species-name{font-size:17px;font-weight:740;line-height:1.3;overflow-wrap:anywhere}.species-caption{font-size:11px;color:var(--muted);margin-top:4px}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:15px 0}.stat{background:#f5f8fc;border:1px solid #e7edf4;border-radius:8px;padding:9px}.stat strong{display:block;font-size:14px}.stat span{display:block;margin-top:3px;color:var(--muted);font-size:10px;line-height:1.3}.section-title{font-size:12px;font-weight:750;margin:16px 0 7px}.taxonomy{display:grid;grid-template-columns:80px minmax(0,1fr);gap:5px 8px;font-size:11px}.taxonomy dt{color:var(--muted)}.taxonomy dd{margin:0;overflow-wrap:anywhere}.pmid-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.pmid-head .count{color:var(--muted);font-weight:550;font-size:10px}.pmids{display:grid;gap:7px;margin-top:8px}.paper{border:1px solid #e2eaf3;border-radius:8px;padding:9px 10px;background:#fbfcfe}.paper a{color:#1760a0;font-size:12px;font-weight:700;text-decoration:none;font-variant-numeric:tabular-nums}.paper a:hover{text-decoration:underline}.paper-title{font-size:11px;line-height:1.4;margin-top:4px;color:#344e6c}.paper-meta{font-size:10px;color:var(--muted);margin-top:3px}.empty{color:var(--muted);font-size:12px}.error{padding:24px;color:#a13232}.foot{font-size:10px;color:#718199;margin:13px 2px 0;line-height:1.5}
+    @media(max-width:1050px){.workspace{grid-template-columns:1fr}.details{position:static;max-height:none}.controls{grid-template-columns:1fr 1fr auto}#map{height:64vh;min-height:480px}}
+    @media(max-width:600px){.shell{padding:19px 12px 25px}h1{font-size:25px}.topline{align-items:flex-start}.badge{font-size:10px}.summary{gap:10px 16px}.controls{grid-template-columns:1fr 1fr}.field:first-child{grid-column:1/-1}.button{width:100%}#map{height:480px;min-height:480px}.chart-card{padding:10px 7px 5px}.details{padding:14px}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="topline"><div class="eyebrow">Pathogen Atlas · Evidence explorer</div><div class="badge" id="dataBadge">Loading species data…</div></div>
+    <h1>Human pathogen evidence</h1>
+    <p class="intro">Explore species in the two-dimensional IMSTE map of their domain-expert feature profiles. Color the map by any expert feature or taxonomic rank, zoom and pan, then click a species to inspect its taxonomy and accepted evidence PMIDs.</p>
+    <section class="summary" aria-label="Dataset summary">
+      <div class="metric"><strong id="speciesCount">—</strong><span>species with expert profiles</span></div>
+      <div class="metric"><strong id="pmidCount">—</strong><span>species–PMID evidence records</span></div>
+      <div class="metric"><strong id="featureCount">—</strong><span>domain-expert features</span></div>
+    </section>
+    <section class="workspace">
+      <section class="card chart-card" aria-label="Interactive species map">
+        <div class="controls">
+          <div class="field"><label for="search">Find a species</label><input id="search" type="search" placeholder="Search species or taxonomy…" autocomplete="off"></div>
+          <div class="field"><label for="colorBy">Color species by</label><select id="colorBy"></select></div>
+          <button class="button" id="resetView" type="button">Reset view</button>
+        </div>
+        <div id="map" role="img" aria-label="Zoomable IMSTE species feature map"></div>
+        <p class="chart-hint" id="mapHint">Hover for species details. Click a point to show all accepted evidence PMIDs and PubMed links. Feature colors show the fraction of scored abstracts Jev marked yes.</p>
+      </section>
+      <aside class="card details" id="details" aria-live="polite">
+        <h2>Species details</h2>
+        <p class="placeholder">Click any point on the map to inspect its taxonomic classification and all accepted evidence abstracts.</p>
+      </aside>
+    </section>
+    <p class="foot">Coordinates are fitted in Phase 5 with IMSTE from the standardized species-by-feature matrix. Color values and evidence links come from the current Phase 4 release. The page reads a compact static JSON file in your browser and does not query a server.</p>
+  </main>
+  <script>
+  (() => {
+    const byId = (id) => document.getElementById(id);
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const formatNumber = (value) => value == null ? '—' : Number(value).toLocaleString();
+    const formatFraction = (value) => value == null ? 'Not scored' : `${(Number(value) * 100).toFixed(0)}% yes`;
+    const palette = ['#2166ac','#e08214','#1b9e77','#7570b3','#d95f02','#66a61e','#e7298a','#1f9e89','#a6761d','#386cb0','#f0027f','#7fc97f','#beaed4','#fdc086','#ffff99','#bf5b17','#80b1d3','#fb8072','#8dd3c7','#bebada'];
+    let dataset = null;
+    let selectedSpecies = null;
+    let embedded = false;
+
+    function addColorOptions(data) {
+      const select = byId('colorBy');
+      select.replaceChildren();
+      const taxonomyGroup = document.createElement('optgroup');
+      taxonomyGroup.label = 'Taxonomy';
+      for (const rank of data.taxonomy_levels) {
+        const option = document.createElement('option');
+        option.value = `taxonomy:${rank}`;
+        option.textContent = rank[0].toUpperCase() + rank.slice(1);
+        taxonomyGroup.append(option);
+      }
+      select.append(taxonomyGroup);
+      const categoryGroups = new Map();
+      for (const feature of data.features) {
+        if (!categoryGroups.has(feature.category)) categoryGroups.set(feature.category, []);
+        categoryGroups.get(feature.category).push(feature);
+      }
+      for (const category of [...categoryGroups.keys()].sort()) {
+        const group = document.createElement('optgroup');
+        group.label = `Feature · ${category.replaceAll('_',' ')}`;
+        for (const feature of categoryGroups.get(category)) {
+          const option = document.createElement('option');
+          option.value = `feature:${feature.id}`;
+          option.textContent = feature.label;
+          group.append(option);
+        }
+        select.append(group);
+      }
+      select.value = 'taxonomy:phylum';
+    }
+
+    function filteredRecords() {
+      const query = byId('search').value.trim().toLocaleLowerCase();
+      if (!query) return dataset.species;
+      return dataset.species.filter((record) => {
+        const taxonomy = Object.values(record.taxonomy || {}).filter(Boolean).join(' ');
+        return `${record.species} ${taxonomy}`.toLocaleLowerCase().includes(query);
+      });
+    }
+
+    function currentColorSelection() {
+      const [kind, key] = byId('colorBy').value.split(':', 2);
+      if (kind === 'feature') {
+        const index = dataset.features.findIndex((feature) => feature.id === key);
+        return {kind, key, index, label: dataset.features[index]?.label || key};
+      }
+      return {kind, key, label: key[0].toUpperCase() + key.slice(1)};
+    }
+
+    function customData(record, selection) {
+      const taxonomy = dataset.taxonomy_levels.map((rank) => record.taxonomy?.[rank] ? `${escapeHtml(rank)}: ${escapeHtml(record.taxonomy[rank])}` : null).filter(Boolean).join(' · ');
+      const value = selection.kind === 'feature' ? record.features[selection.index] : record.taxonomy?.[selection.key];
+      return [escapeHtml(record.species), taxonomy, record.n_articles, record.n_causation, record.n_pmids, escapeHtml(selection.label), selection.kind === 'feature' ? formatFraction(value) : escapeHtml(value || 'Unclassified')];
+    }
+
+    function makeTrace(records, selection, missing = false) {
+      const rows = records.filter((record) => {
+        if (selection.kind !== 'feature') return true;
+        const value = record.features[selection.index];
+        return missing ? value == null : value != null;
+      });
+      const trace = {
+        type: 'scattergl', mode: 'markers',
+        x: rows.map((record) => record.x), y: rows.map((record) => record.y),
+        customdata: rows.map((record) => customData(record, selection)),
+        marker: {size: 8, opacity: 0.84, line: {width: 0.45, color: '#ffffff'}},
+        hovertemplate: '<b>%{customdata[0]}</b><br>%{customdata[1]}<br>Accepted abstracts: %{customdata[3]}<br>Evidence PMIDs: %{customdata[4]}<br>%{customdata[5]}: %{customdata[6]}<extra></extra>',
+        showlegend: false,
+      };
+      if (selection.kind === 'feature' && missing) {
+        trace.marker.color = '#aeb9c7';
+        trace.name = 'Not scored';
+      } else if (selection.kind === 'feature') {
+        trace.marker.color = rows.map((record) => record.features[selection.index]);
+        trace.marker.colorscale = 'Viridis';
+        trace.marker.cmin = 0;
+        trace.marker.cmax = 1;
+        trace.marker.showscale = true;
+        trace.marker.colorbar = {title: {text: selection.label, side: 'right'}, thickness: 13, len: 0.72, tickformat: '.0%'};
+      } else {
+        const values = rows.map((record) => record.taxonomy?.[selection.key] || 'Unclassified');
+        const categories = [...new Set(values)].sort((a,b) => a.localeCompare(b));
+        const colors = new Map(categories.map((category, index) => [category, palette[index % palette.length]]));
+        trace.marker.color = values.map((category) => colors.get(category));
+        trace.marker.opacity = 0.88;
+        if (categories.length <= 12) {
+          trace.showlegend = true;
+          trace.name = selection.label;
+          trace.marker.showscale = false;
+          trace.legendgroup = selection.key;
+          trace._categoryRows = categories.map((category) => ({category, color: colors.get(category)}));
+        }
+      }
+      return trace;
+    }
+
+    function renderMap() {
+      const records = filteredRecords();
+      const selection = currentColorSelection();
+      const traces = selection.kind === 'feature'
+        ? [makeTrace(records, selection), makeTrace(records, selection, true)]
+        : [makeTrace(records, selection)];
+      if (selection.kind !== 'feature' && traces[0]._categoryRows) {
+        const categoryRows = traces[0]._categoryRows;
+        delete traces[0]._categoryRows;
+        const points = traces[0];
+        points.showlegend = false;
+        for (const item of categoryRows) {
+          const indices = points.customdata.map((row, index) => row[6] === item.category ? index : -1).filter((index) => index >= 0);
+          traces.push({
+            type: 'scattergl', mode: 'markers', name: item.category, legendgroup: selection.key,
+            x: indices.map((index) => points.x[index]), y: indices.map((index) => points.y[index]),
+            customdata: indices.map((index) => points.customdata[index]),
+            marker: {size: 8, opacity: 0.84, color: item.color, line: {width: 0.45, color: '#ffffff'}},
+            hovertemplate: points.hovertemplate,
+          });
+        }
+      }
+      const selected = dataset.species.find((record) => record.species === selectedSpecies && records.includes(record));
+      if (selected) {
+        traces.push({type:'scattergl',mode:'markers',x:[selected.x],y:[selected.y],hoverinfo:'skip',showlegend:false,marker:{symbol:'circle-open',size:17,color:'#d84a36',line:{width:2.5}}});
+      }
+      const layout = {
+        margin: {l: 58, r: selection.kind === 'feature' ? 88 : 20, t: 22, b: 50},
+        paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff',
+        font: {family: 'Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif', color: '#29425f', size: 11},
+        xaxis: {title: 'IMSTE 1', zeroline: false, gridcolor: '#edf1f6'},
+        yaxis: {title: 'IMSTE 2', zeroline: false, gridcolor: '#edf1f6', scaleanchor: 'x', scaleratio: 1},
+        hovermode: 'closest', uirevision: 'pathogen-atlas-feature-space',
+        showlegend: selection.kind === 'taxonomy' && (dataset.taxonomy_levels.includes(selection.key)) && [...new Set(records.map((record) => record.taxonomy?.[selection.key] || 'Unclassified'))].length <= 12,
+        legend: {orientation: 'h', y: -0.15, x: 0, font: {size: 10}},
+        annotations: records.length ? [] : [{text: 'No species match this search',xref:'paper',yref:'paper',x:.5,y:.5,showarrow:false,font:{color:'#5e718b',size:13}}],
+      };
+      byId('mapHint').textContent = selection.kind === 'feature'
+        ? `Color: ${selection.label}. Gray points have no scored value for this feature. Hover for taxonomy and evidence counts; click a point to see its PMID links.`
+        : `Color: ${selection.label}. Hover for species, taxonomy, feature value, and evidence counts; click a point to see its PMID links.`;
+      Plotly.react(byId('map'), traces, layout, {
+        responsive: true,
+        displaylogo: false,
+        scrollZoom: true,
+        modeBarButtonsToRemove: ['lasso2d','select2d'],
+      }).then(() => {
+        if (!embedded) {
+          byId('map').on('plotly_click', (event) => {
+            const record = event.points?.[0]?.customdata;
+            if (record?.[0]) selectSpecies(record[0]);
+          });
+          embedded = true;
+        }
+      });
+    }
+
+    function selectSpecies(name) {
+      const record = dataset.species.find((item) => item.species === name);
+      if (!record) return;
+      selectedSpecies = name;
+      const details = byId('details');
+      details.replaceChildren();
+      const heading = document.createElement('h2');
+      heading.textContent = 'Species details';
+      details.append(heading);
+      const title = document.createElement('div');
+      title.className = 'species-name';
+      title.textContent = record.species;
+      details.append(title);
+      const caption = document.createElement('div');
+      caption.className = 'species-caption';
+      caption.textContent = 'Human disease evidence accepted at the Phase 3 confidence threshold';
+      details.append(caption);
+
+      const stats = document.createElement('div');
+      stats.className = 'stats';
+      for (const [value, label] of [[record.n_pmids, 'Evidence PMIDs'], [record.n_articles, 'Articles in acquisition'], [record.n_causation, 'Causation matches']]) {
+        const stat = document.createElement('div');
+        stat.className = 'stat';
+        const strong = document.createElement('strong');
+        strong.textContent = formatNumber(value);
+        const span = document.createElement('span');
+        span.textContent = label;
+        stat.append(strong, span);
+        stats.append(stat);
+      }
+      details.append(stats);
+
+      const taxonomyTitle = document.createElement('div');
+      taxonomyTitle.className = 'section-title';
+      taxonomyTitle.textContent = 'Taxonomy';
+      details.append(taxonomyTitle);
+      const taxonomy = document.createElement('dl');
+      taxonomy.className = 'taxonomy';
+      for (const rank of dataset.taxonomy_levels) {
+        const term = document.createElement('dt');
+        term.textContent = rank[0].toUpperCase() + rank.slice(1);
+        const description = document.createElement('dd');
+        description.textContent = record.taxonomy?.[rank] || 'Unclassified';
+        taxonomy.append(term, description);
+      }
+      details.append(taxonomy);
+
+      const papersHeader = document.createElement('div');
+      papersHeader.className = 'pmid-head section-title';
+      const papersTitle = document.createElement('span');
+      papersTitle.textContent = 'Accepted evidence abstracts';
+      const papersCount = document.createElement('span');
+      papersCount.className = 'count';
+      papersCount.textContent = `${record.pmids.length.toLocaleString()} PMID${record.pmids.length === 1 ? '' : 's'}`;
+      papersHeader.append(papersTitle, papersCount);
+      details.append(papersHeader);
+      const papers = document.createElement('div');
+      papers.className = 'pmids';
+      if (!record.pmids.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'No accepted evidence PMIDs are available for this species.';
+        papers.append(empty);
+      }
+      for (const paper of record.pmids) {
+        const card = document.createElement('article');
+        card.className = 'paper';
+        const link = document.createElement('a');
+        link.href = `https://pubmed.ncbi.nlm.nih.gov/${encodeURIComponent(paper.pmid)}/`;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = `PMID ${paper.pmid}`;
+        link.title = `Open PubMed record ${paper.pmid} in a new tab`;
+        card.append(link);
+        if (paper.title) {
+          const paperTitle = document.createElement('div');
+          paperTitle.className = 'paper-title';
+          paperTitle.textContent = paper.title;
+          card.append(paperTitle);
+        }
+        if (paper.year != null || paper.doi) {
+          const meta = document.createElement('div');
+          meta.className = 'paper-meta';
+          meta.textContent = [paper.year, paper.doi ? `DOI ${paper.doi}` : null].filter(Boolean).join(' · ');
+          card.append(meta);
+        }
+        papers.append(card);
+      }
+      details.append(papers);
+      renderMap();
+    }
+
+    async function main() {
+      if (!window.Plotly) {
+        byId('map').innerHTML = '<div class="error">Could not load Plotly. Check the connection and refresh the page.</div>';
+        return;
+      }
+      try {
+        const response = await fetch('./explorer-data.json', {cache: 'no-store'});
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        dataset = await response.json();
+      } catch (error) {
+        byId('map').innerHTML = '<div class="error">Could not load explorer-data.json. Build the explorer data and serve this folder over HTTP; see the site README.</div>';
+        byId('dataBadge').textContent = 'Data unavailable';
+        console.error('Could not load Pathogen Atlas explorer data', error);
+        return;
+      }
+      byId('dataBadge').textContent = `Data built ${new Date(dataset.generated_at).toLocaleDateString()}`;
+      byId('speciesCount').textContent = formatNumber(dataset.counts.species);
+      byId('pmidCount').textContent = formatNumber(dataset.counts.species_pmid_records);
+      byId('featureCount').textContent = formatNumber(dataset.counts.features);
+      addColorOptions(dataset);
+      byId('colorBy').addEventListener('change', renderMap);
+      byId('search').addEventListener('input', renderMap);
+      byId('resetView').addEventListener('click', () => Plotly.relayout(byId('map'), {'xaxis.autorange': true, 'yaxis.autorange': true}));
+      renderMap();
+    }
+    main();
+  })();
+  </script>
+</body>
+</html>
