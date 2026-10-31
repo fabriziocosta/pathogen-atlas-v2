@@ -15,9 +15,10 @@ from the versioned Jev question set in `configs/domain_expert_questions.yaml`.
 Use **Min supporting PMIDs** to hide species with fewer accepted pathogen-supporting PubMed records; the map count updates to reflect the filtered set. The default minimum is zero.
 Search by species or taxonomy, zoom and pan the map, and click a point to
 inspect the lineage and the PMIDs accepted by the Phase 3 human pathogen
-evidence threshold. Each PMID opens its PubMed record. PMID data is split into
-small hashed shards and fetched only when a species is selected, then cached by
-the browser. The initial page load contains the single species coordinate and
+evidence threshold. Expand **Pathogen supporting abstracts** to load its PMID
+list; each PMID opens its PubMed record. PMID data is split into small hashed
+shards and fetched only when the section is expanded, then cached by the
+browser. The initial page load contains the single species coordinate and
 feature record per point, not every abstract.
 Each supporting PMID includes the Jev confidence (`p_yes`) in its details.
 Confidence is right-aligned beside the PMID, and the list can be sorted by
