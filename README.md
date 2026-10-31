@@ -85,3 +85,10 @@ allow the full pending run. Results are stored as raw responses under
 `data/03_decisions/parsed/`. The source records probabilities only; it does not
 apply a production threshold. The CLI entry point is `pathogen-atlas-phase3`;
 it only runs when `run_phase: true` is set in the shared Phase 3 parameters.
+
+## Open the explorer
+
+On macOS, double-click [`launch_explorer.command`](launch_explorer.command) in
+the V2 root. It starts a local web server on an available port and opens the
+interactive explorer in your browser. Keep the Terminal window open while
+using the page; press Ctrl+C there to stop the server.
