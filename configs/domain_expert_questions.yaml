@@ -419,7 +419,7 @@ questions:
   geography:
     concept: GEOGRAPHY
     category: other
-    definition: in what city or village in what country did the patient fall ill?
+    definition: does the abstract report the city, village, or country where the patient fell ill?
     type: noul
     instructions: 'Based only on article.title and article.abstract, assess whether GEOGRAPHY applies to the human
       infection or disease in this article. Use species.canonical_name and species.names_in_query when the concept
@@ -694,7 +694,7 @@ questions:
   patient_age:
     concept: PATIENT AGE
     category: patient
-    definition: is the infected person a neonate, child, adult or elderly?
+    definition: does the abstract report the infected patient's age or age group (neonate, child, adult, or elderly)?
     type: noul
     instructions: 'Based only on article.title and article.abstract, assess whether PATIENT AGE applies to the human
       infection or disease in this article. Use species.canonical_name and species.names_in_query when the concept
@@ -709,7 +709,7 @@ questions:
   patient_occupation:
     concept: PATIENT OCCUPATION
     category: patient
-    definition: what is the job, role or occupation of the patient?
+    definition: does the abstract report the patient's job, role, or occupation?
     type: noul
     instructions: 'Based only on article.title and article.abstract, assess whether PATIENT OCCUPATION applies to
       the human infection or disease in this article. Use species.canonical_name and species.names_in_query when
