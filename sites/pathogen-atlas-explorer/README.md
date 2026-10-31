@@ -42,8 +42,9 @@ are marked as unscored.
 Each selected species shows its V2 **Pathogenic Interest Index**. Enable
 **Size by Pathogenic Interest Index** to scale point area by its normalized score; clear it to
 return to uniform point sizes.
-The map opens colored by the Epidemiology feature with reversed Inferno and
-Pathogenic Interest Index sizing enabled.
+The map opens with **Salmonella enterica** selected and colored by the
+Epidemiology feature, with reversed Inferno and Pathogenic Interest Index
+sizing enabled.
 
 ## Build the static data
 

@@ -737,7 +737,11 @@
       byId('search').addEventListener('input', renderMap);
       byId('minPathogenPmids').addEventListener('input', renderMap);
       byId('resetView').addEventListener('click', () => Plotly.relayout(byId('map'), {'xaxis.autorange': true, 'yaxis.autorange': true}));
-      renderMap();
+      if (dataset.species.some((record) => record.species === 'Salmonella enterica')) {
+        selectSpecies('Salmonella enterica');
+      } else {
+        renderMap();
+      }
     }
     main();
   })();
