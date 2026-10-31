@@ -125,9 +125,9 @@
     }
 
     function customData(record, selection) {
-      const taxonomy = dataset.taxonomy_levels.map((rank) => record.taxonomy?.[rank] ? `${escapeHtml(rank)}: ${escapeHtml(record.taxonomy[rank])}` : null).filter(Boolean).join(' · ');
+      const taxonomy = dataset.taxonomy_levels.map((rank) => record.taxonomy?.[rank] || 'Unclassified');
       const value = selection.kind === 'feature' ? record.features[selection.index] : record.taxonomy?.[selection.key];
-      return [escapeHtml(record.species), taxonomy, record.n_articles, record.n_pmids, escapeHtml(selection.label), selection.kind === 'feature' ? formatFraction(value) : escapeHtml(value || 'Unclassified')];
+      return [escapeHtml(record.species), ...taxonomy.map(escapeHtml), record.n_articles, record.n_pmids, escapeHtml(selection.label), selection.kind === 'feature' ? formatFraction(value) : escapeHtml(value || 'Unclassified')];
     }
 
     function makeTrace(records, selection, missing = false) {
@@ -141,7 +141,8 @@
         x: rows.map((record) => record.x), y: rows.map((record) => record.y),
         customdata: rows.map((record) => customData(record, selection)),
         marker: {size: 8, opacity: 0.84, line: {width: 0.45, color: '#ffffff'}},
-        hovertemplate: '<b>%{customdata[0]}</b><br>%{customdata[1]}<br>PubMed search records: %{customdata[2]}<br>Pathogen supporting PMIDs: %{customdata[3]}<br>%{customdata[4]}: %{customdata[5]}<extra></extra>',
+        hovertemplate: '<b>%{customdata[0]}</b><br>Domain: %{customdata[1]} · Kingdom: %{customdata[2]}<br>Phylum: %{customdata[3]} · Class: %{customdata[4]}<br>Order: %{customdata[5]} · Family: %{customdata[6]}<br>Genus: %{customdata[7]}<br>PubMed search records: %{customdata[8]}<br>Pathogen supporting PMIDs: %{customdata[9]}<br>%{customdata[10]}: %{customdata[11]}<extra></extra>',
+        hoverlabel: {align: 'left', namelength: 0},
         showlegend: false,
       };
       if (selection.kind === 'feature' && missing) {
@@ -183,7 +184,7 @@
         const points = traces[0];
         points.showlegend = false;
         for (const item of categoryRows) {
-          const indices = points.customdata.map((row, index) => row[5] === item.category ? index : -1).filter((index) => index >= 0);
+          const indices = points.customdata.map((row, index) => row[11] === item.category ? index : -1).filter((index) => index >= 0);
           traces.push({
             type: 'scattergl', mode: 'markers', name: item.category, legendgroup: selection.key,
             x: indices.map((index) => points.x[index]), y: indices.map((index) => points.y[index]),
