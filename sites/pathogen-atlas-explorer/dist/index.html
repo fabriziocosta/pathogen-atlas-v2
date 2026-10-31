@@ -24,7 +24,7 @@
     .taxonomy-synonym-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}.taxonomy-panel,.synonyms-panel{min-width:0}.taxonomy-panel>.section-title,.synonyms-panel>.section-title{margin:0 0 8px}.synonyms-list{display:grid;gap:5px;margin:0;padding:0;list-style:none;color:#42596c;font-size:9px;line-height:1.4}.synonyms-list li{overflow-wrap:anywhere}.synonyms-empty{color:#82909d;font-style:italic}.synonyms-count{margin-left:5px;color:#718697;font-size:8px;font-weight:600}
     @media(max-width:520px){.taxonomy-synonym-grid{grid-template-columns:1fr}}
     .control-actions{display:flex;align-items:center;gap:9px}.appearance-menu{position:relative;z-index:20;flex:0 0 auto}.appearance-menu>summary{display:inline-flex;align-items:center;justify-content:center;height:34px;padding:0 11px;border:1px solid #d3dfe4;border-radius:8px;background:#fff;color:#33586a;font:inherit;font-size:11px;font-weight:650;white-space:nowrap;cursor:pointer;list-style:none;transition:background .15s,border-color .15s}.appearance-menu>summary::-webkit-details-marker{display:none}.appearance-menu>summary:hover,.appearance-menu[open]>summary{background:#eef6f4;border-color:#b9d4ce}.appearance-menu>summary:focus-visible{outline:3px solid rgba(20,117,110,.18);outline-offset:2px}.appearance-popover{position:absolute;top:calc(100% + 8px);right:0;width:min(260px,calc(100vw - 42px));padding:13px;border:1px solid #d7e2e6;border-radius:10px;background:white;box-shadow:0 10px 28px rgba(24,49,69,.18);z-index:30}.appearance-popover .field{margin-bottom:10px}.appearance-popover .field select{height:36px}.appearance-popover .size-toggle{font-size:10px}.appearance-popover .size-toggle span{white-space:nowrap}
-    .pmid-box{display:block;min-width:0;margin:17px 0 0;padding:0;border:0;border-radius:0;background:transparent}.pmid-box>legend{margin:0;padding:0 0 7px;color:var(--ink);font-size:11px;font-weight:740}.pmid-disclosure{min-width:0}.pmid-summary{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 2px;list-style:none;cursor:pointer;color:#526a7c;font-size:10px;font-weight:650}.pmid-summary::-webkit-details-marker{display:none}.pmid-summary::after{content:'+';flex:0 0 auto;color:#718697;font-size:15px;font-weight:600}.pmid-disclosure[open]>.pmid-summary::after{content:'−'}.pmid-content{padding:4px 2px 0}.pmid-content>.paper-sort{display:block;margin:0 0 9px auto}.pmid-summary .count{margin:0}
+    .pmid-box{display:block;min-width:0;margin:17px 0 0;padding:0;border:0;border-radius:0;background:transparent}.pmid-content{padding:4px 2px 0}.pmid-content>.paper-sort{display:block;margin:0 0 9px auto}
   </style>
 </head>
 <body>
@@ -539,20 +539,16 @@
       expertProfile.append(expertGroups, expertDetail);
       details.append(expertProfile);
 
-      const papersBox = document.createElement('fieldset');
-      papersBox.className = 'pmid-box';
-      const papersLegend = document.createElement('legend');
-      papersLegend.textContent = 'Pathogen supporting abstracts';
-      papersBox.append(papersLegend);
-      const papersSection = document.createElement('details');
-      papersSection.className = 'pmid-disclosure';
+      const papersBox = document.createElement('details');
+      papersBox.className = 'expert-profile pmid-box';
       const papersSummary = document.createElement('summary');
-      papersSummary.className = 'pmid-summary';
+      const papersTitle = document.createElement('span');
+      papersTitle.textContent = 'Pathogen supporting abstracts';
       const papersCount = document.createElement('span');
-      papersCount.className = 'count';
+      papersCount.className = 'expert-profile-count';
       papersCount.textContent = `${Number(record.n_pmids || 0).toLocaleString()} PMID${record.n_pmids === 1 ? '' : 's'}`;
-      papersSummary.append(papersCount);
-      papersSection.append(papersSummary);
+      papersSummary.append(papersTitle, papersCount);
+      papersBox.append(papersSummary);
       const papersContent = document.createElement('div');
       papersContent.className = 'pmid-content';
       const sortSelect = document.createElement('select');
@@ -572,8 +568,7 @@
       loading.textContent = record.n_pmids ? 'Expand to load pathogen supporting records…' : 'No accepted pathogen evidence PMIDs are available for this species.';
       papers.append(loading);
       papersContent.append(papers);
-      papersSection.append(papersContent);
-      papersBox.append(papersSection);
+      papersBox.append(papersContent);
       details.append(papersBox);
       renderMap();
       let speciesPapers = [];
@@ -594,8 +589,8 @@
       sortSelect.addEventListener('change', () => {
         if (papersLoaded) renderPapers();
       });
-      papersSection.addEventListener('toggle', async () => {
-        if (!papersSection.open || papersLoaded || papersLoading) return;
+      papersBox.addEventListener('toggle', async () => {
+        if (!papersBox.open || papersLoaded || papersLoading) return;
         papersLoading = true;
         loading.textContent = 'Loading pathogen supporting records…';
         try {
