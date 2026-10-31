@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="assets/pathogen-atlas-logo.png" alt="Pathogen Atlas logo" width="180">
+</div>
+
 # Pathogen Atlas
 
 The Pathogen Atlas is an evidence map of microorganisms reported in connection
