@@ -6,7 +6,7 @@ The release includes:
 
 - `evidence_records.parquet`: accepted species–PMID evidence with article metadata and gate probability.
 - `species_summary.parquet`: full PubMed article counts, accepted evidence counts, first evidence year, and taxonomy fields. Full counts come from the unsampled Phase 2 PMID index, while evidence counts are bounded by the abstracts actually fetched and scored.
-- `pathogenic_index.parquet`: the V1 sampling-adjusted log index, computed as `log(n_causation / n_sampled * n_articles)` and normalized by its maximum. Species without accepted evidence receive zero. The static explorer uses it to size points when its pathogenic-index toggle is on.
+- `pathogenic_index.parquet`: the V2 sampled-evidence index. Estimate accepted evidence as `n_causation / n_sampled * n_articles`, take its natural logarithm, and divide by the largest species log estimate. Species with no accepted evidence or no sample receive zero. The index version and definition are recorded in `table_creation_metadata.json`; the explorer shows each selected species' score and can use it to size points.
 - `domain_expert_answers.parquet`: current gate-passing species–abstract pairs with question probabilities and threshold-derived yes/no answers.
 - `species_feature_summary.parquet`: per-species, per-question yes counts and prevalence from the V1 73-question set.
 - `species_feature_matrix.parquet`: wide species-by-question prevalence matrix for plotting and further analysis.

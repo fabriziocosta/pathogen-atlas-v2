@@ -1,4 +1,4 @@
-"""Compute the V1 sampling-adjusted pathogenic index per species."""
+"""Define and compute the V2 species-level pathogen-evidence index."""
 
 from __future__ import annotations
 
@@ -7,16 +7,23 @@ import pandas as pd
 
 
 INDEX_INPUT_COLUMNS = ("canonical_species", "n_causation", "n_articles", "n_sampled")
+PATHOGENIC_INDEX_VERSION = "pathogenic-index-v2"
+PATHOGENIC_INDEX_DEFINITION = (
+    "n_causation counts species–PMID decisions accepted at the Phase 3 threshold; "
+    "n_sampled counts abstracts scored; n_articles counts full PubMed hits. Estimate "
+    "accepted evidence as n_causation / n_sampled * n_articles, take its natural "
+    "logarithm, and normalize by the largest species log estimate. Set the index "
+    "to zero when no accepted evidence or no sample is available."
+)
 
 
 def build_pathogenic_index(species_summary: pd.DataFrame) -> pd.DataFrame:
-    """Estimate a normalized pathogenic index using the V1 formula.
+    """Estimate the V2 normalized pathogenic index from sampled evidence.
 
-    V1 estimated total causative abstracts as
-    ``n_causation / n_sampled * n_articles``, took its natural logarithm, and
-    divided by the largest log estimate. Species with no accepted abstracts
-    or no sample receive an index of zero in V2, where the summary also
-    includes species with no positive pathogen decisions.
+    Estimate total accepted pathogen evidence as
+    ``n_causation / n_sampled * n_articles``, take its natural logarithm, and
+    divide by the largest log estimate. Species with no accepted abstracts or
+    no sample receive an index of zero.
     """
     missing = set(INDEX_INPUT_COLUMNS) - set(species_summary.columns)
     if missing:

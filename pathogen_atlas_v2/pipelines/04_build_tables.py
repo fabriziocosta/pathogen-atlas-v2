@@ -15,7 +15,11 @@ from pathogen_atlas_v2.notebook_utils import notebook_phase_parameters
 from pathogen_atlas_v2.tables.abstract_counts import build_abstract_count_table
 from pathogen_atlas_v2.tables.emergence_tables import build_emergence_table
 from pathogen_atlas_v2.tables.feature_tables import build_feature_tables, build_species_feature_matrix
-from pathogen_atlas_v2.tables.pathogenic_index import build_pathogenic_index
+from pathogen_atlas_v2.tables.pathogenic_index import (
+    PATHOGENIC_INDEX_DEFINITION,
+    PATHOGENIC_INDEX_VERSION,
+    build_pathogenic_index,
+)
 from pathogen_atlas_v2.tables.species_table import build_species_summary
 from pathogen_atlas_v2.tables.web_exports import export_release_tables
 
@@ -151,6 +155,12 @@ def build_phase4_tables(config: dict[str, Any] | None = None) -> dict[str, Any]:
         "question_key": settings.get("question_key", "human_pathogen_evidence"),
         "question_config_path": settings.get("question_config_path", "configs/llm_questions.yaml"),
         "question_confidence_threshold": float(settings.get("question_confidence_threshold", 0.75)),
+        "derived_metrics": {
+            "pathogenic_index": {
+                "version": PATHOGENIC_INDEX_VERSION,
+                "definition": PATHOGENIC_INDEX_DEFINITION,
+            }
+        },
         "record_counts": {name: len(frame) for name, frame in tables.items()},
         "outputs": {"parquet_tables": table_paths, "web_csv_exports": web_exports},
         "inputs": {name: details["path"] for name, details in preflight["inputs"].items()},
