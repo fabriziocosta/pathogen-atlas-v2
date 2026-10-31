@@ -23,9 +23,10 @@ Each supporting PMID includes the Jev confidence (`p_yes`) in its details.
 Confidence is right-aligned beside the PMID, and the list can be sorted by
 newest publication date or highest confidence.
 The species profile also includes a compact three-column panel for all 73
-domain-expert questions. Each bar shows the share of scored abstracts answered
-yes and the scored yes/total count; select a question to read its definition.
-Questions without scored answers are marked as unscored.
+domain-expert questions, grouped into bordered category boxes such as
+transmission and patient. Each bar shows the share of scored abstracts
+answered yes and the scored yes/total count; select a question to read its
+definition. Questions without scored answers are marked as unscored.
 Each selected species shows its V2 pathogenic index. Enable **Size by
 pathogenic index** to scale point area by its normalized score; clear it to
 return to uniform point sizes.
