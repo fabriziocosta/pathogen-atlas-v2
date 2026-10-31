@@ -340,8 +340,8 @@ questions:
   epidemiology:
     concept: EPIDEMIOLOGY
     category: public_health
-    definition: the pathogen is discussed in the context of epidemiological surveillance, and strategies and measures
-      aimed at monitoring, preventing, and controlling the spread of infectious diseases (public health interventions)?
+    definition: is the pathogen discussed in the context of epidemiological surveillance or strategies and measures
+      for monitoring, preventing, or controlling infectious-disease spread (public health interventions)?
     type: noul
     instructions: 'Based only on article.title and article.abstract, assess whether EPIDEMIOLOGY applies to the
       human infection or disease in this article. Use species.canonical_name and species.names_in_query when the
@@ -556,8 +556,8 @@ questions:
   microbiome:
     concept: MICROBIOME
     category: other
-    definition: the bacterial species is referred to in studies sequencing the human microbiome, specifically whether
-      its presence or abundance is positively or negatively correlated with other (non-communicable) diseases?
+    definition: is the species discussed in human microbiome sequencing studies that assess whether its presence or
+      abundance is positively or negatively correlated with a noncommunicable disease?
     type: noul
     instructions: 'Based only on article.title and article.abstract, assess whether MICROBIOME applies to the human
       infection or disease in this article. Use species.canonical_name and species.names_in_query when the concept
