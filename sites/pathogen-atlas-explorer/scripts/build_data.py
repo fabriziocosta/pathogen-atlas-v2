@@ -62,17 +62,28 @@ def build_payload(
         raise ValueError("Pathogenic-index table must contain exactly one row per species.")
     index_by_species = pathogenic_index.set_index("canonical_species")["pathogenic_index"].to_dict()
 
-    feature_columns = [column for column in feature_matrix.columns if column.startswith("feature_")]
     feature_summary_path = RELEASE / "species_feature_summary.parquet"
-    feature_summary = pd.read_parquet(feature_summary_path, columns=["question_id", "concept", "category"])
-    features = (
-        feature_summary.drop_duplicates("question_id")
-        .sort_values(["category", "concept", "question_id"], kind="stable")
-        .assign(column=lambda frame: "feature_" + frame["question_id"].astype(str))
+    feature_summary = pd.read_parquet(
+        feature_summary_path,
+        columns=["canonical_species", "question_id", "concept", "category", "n_answered"],
     )
-    features = features.loc[features["column"].isin(feature_columns)].copy()
     question_config = yaml.safe_load(QUESTION_SET_PATH.read_text(encoding="utf-8"))
     questions = question_config.get("questions", {})
+    features = pd.DataFrame(
+        [
+            {
+                "question_id": str(question_id),
+                "concept": str(question.get("concept", question_id)),
+                "category": str(question.get("category", "uncategorized")),
+                "column": f"feature_{question_id}",
+            }
+            for question_id, question in questions.items()
+        ]
+    ).sort_values(["category", "concept", "question_id"], kind="stable")
+    feature_answered_counts = {
+        (str(row.canonical_species), str(row.question_id)): as_optional_number(row.n_answered)
+        for row in feature_summary.itertuples(index=False)
+    }
     feature_definitions = [
         {
             "id": str(row.question_id),
@@ -154,6 +165,7 @@ def build_payload(
                 "pathogenic_index": float(index_value),
                 "evidence_shard": shard,
                 "features": [as_optional_number(feature_row.get(f"feature_{question_id}")) for question_id in feature_ids],
+                "feature_answered": [feature_answered_counts.get((name, question_id)) for question_id in feature_ids],
             }
         )
 
