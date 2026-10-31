@@ -361,7 +361,7 @@
       details.append(stats);
       const indexMethod = document.createElement('p');
       indexMethod.className = 'index-method';
-      indexMethod.textContent = 'Index = log(n_causation ÷ n_sampled × n_articles), normalized by the highest species score. Zero if no accepted evidence or sample.';
+      indexMethod.textContent = 'Index = log(Pathogen supporting PMIDs ÷ Abstracts fetched × PubMed search records), normalized by the highest species score. Zero if there are no pathogen supporting PMIDs or no abstracts fetched.';
       details.append(indexMethod);
 
       const taxonomyTitle = document.createElement('div');

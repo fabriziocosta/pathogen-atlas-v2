@@ -222,10 +222,12 @@ data/04_tables/release/
 This phase is the boundary between data production and downstream consumers. The web app, paper figures, and reports should use the release tables from this phase rather than pulling directly from raw or interim data.
 
 `pathogenic_index.parquet` defines the V2 sampled-evidence metric: estimate
-accepted pathogen evidence as `n_causation / n_sampled * n_articles`, take its
-natural logarithm, then normalize by the maximum species log estimate. Species
-with no accepted evidence or no sample receive zero. The index version and
-definition are recorded in `table_creation_metadata.json`.
+accepted pathogen evidence as Pathogen supporting PMIDs (`n_causation`) divided
+by Abstracts fetched (`n_sampled`), multiplied by PubMed search records
+(`n_articles`); take its natural logarithm, then normalize by the maximum
+species log estimate. Species with no supporting PMIDs or no abstracts fetched
+receive zero. The index version and definition are recorded in
+`table_creation_metadata.json`.
 
 `domain_expert_answers.parquet` is the detailed PMID-by-question ledger. It is
 the canonical analytical record, not a general-purpose web CSV: exporting all
