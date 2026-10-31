@@ -36,6 +36,8 @@ python -m pip install -e ".[viz]"
 
 The `viz` extra installs the pinned [IMSTE sister project](https://github.com/fabriziocosta/IteratedMinimumSpanningTree). Phase 5 standardizes the species-by-domain-feature matrix, fits an IMSTE embedding, and colors the same map by the most variable feature prevalences. Adjust the `imste_*` settings in `configs/notebook_parameters.yaml` or the `IMSTE_PARAMETERS` block in Notebook 00. The estimator method, tree count, neighbor counts, optimization epochs, negative ratio, repulsion share, learning rate, device, and random seed are configurable; defaults use FAMST with a fixed random seed.
 
+See [docs/embedding_methodology.md](docs/embedding_methodology.md) for the full feature aggregation, preprocessing, graph construction, coordinate optimization, and interpretation details.
+
 `pygraphviz` is intentionally not installed by default because it requires a
 system Graphviz installation; add it locally only for Graphviz-backed network
 layouts.
