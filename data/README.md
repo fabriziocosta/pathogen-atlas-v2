@@ -1,6 +1,7 @@
 # Data
 
-Data is organised by pipeline phase:
+Generated pipeline data belongs under the repository-root `data/` directory,
+organized by phase:
 
 1. `01_species`
 2. `02_abstracts`
@@ -9,3 +10,9 @@ Data is organised by pipeline phase:
 5. `05_plots`
 
 Each phase separates raw or intermediate artifacts from release outputs.
+
+Parquet files in a phase's `release/` directory are its canonical generated
+tables. CSVs and other web assets are derived exports with an explicit,
+curated purpose. Never write phase data under `notebooks/`; notebook working
+directories are not stable and must not determine where pipeline artifacts
+are stored.

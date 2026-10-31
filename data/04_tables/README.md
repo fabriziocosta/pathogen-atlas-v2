@@ -10,6 +10,6 @@ The release includes:
 - `species_feature_summary.parquet`: per-species, per-question yes counts and prevalence from the V1 73-question set.
 - `species_feature_matrix.parquet`: wide species-by-question prevalence matrix for plotting and further analysis.
 - `abstract_counts.parquet`: yearly unique PMID counts per species for accepted evidence.
-- `web_exports/*.csv`: CSV versions of every release table.
+- `web_exports/*.csv`: selected, smaller CSV summaries for downloads and external consumers. The export allowlist omits `domain_expert_answers.parquet`, the detailed PMID-by-question ledger; keep that full table in Parquet and build purpose-specific web payloads from it.
 - `emergence.parquet`: V1-style first-evidence year, year of reaching the publication target, time to that target, and evidence count in the initial year window. Defaults match the V1 selection logic (more than 10 evidence abstracts and fewer than 30,000 PubMed articles).
 - `table_creation_metadata.json`: input paths, thresholds, run IDs, and row counts.

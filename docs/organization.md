@@ -207,16 +207,25 @@ Expected release outputs:
 
 ```text
 data/04_tables/release/
-├── species.csv
-├── counts.csv
-├── counts_extended.csv
-├── emergence.csv
-├── pathogen_features.csv
-├── abstract_evidence.csv
-└── web_bundle/
+├── evidence_records.parquet
+├── species_summary.parquet
+├── domain_expert_answers.parquet
+├── species_feature_summary.parquet
+├── species_feature_matrix.parquet
+├── abstract_counts.parquet
+├── emergence.parquet
+├── table_creation_metadata.json
+└── web_exports/                 # curated, smaller CSV summaries
 ```
 
 This phase is the boundary between data production and downstream consumers. The web app, paper figures, and reports should use the release tables from this phase rather than pulling directly from raw or interim data.
+
+`domain_expert_answers.parquet` is the detailed PMID-by-question ledger. It is
+the canonical analytical record, not a general-purpose web CSV: exporting all
+rows to text CSV creates an unnecessarily large duplicate. The web export
+helper writes only its explicit summary-table allowlist. Notebook working
+directories must never be used as data roots; relative pipeline paths resolve
+from the repository root.
 
 ## Phase 5: Plot Creation
 
@@ -241,12 +250,20 @@ Expected release outputs:
 
 ```text
 data/05_plots/release/
-├── emergence/
-├── taxonomy/
-├── embeddings/
-├── diagnostics/
-└── figure_manifest.json
+├── annual_evidence_counts.png
+├── emergence_timeline.png
+├── feature_prevalence.png
+├── species_evidence_counts.png
+├── species_feature_space.png
+├── species_feature_space_coordinates.parquet
+├── taxonomy_composition.png
+└── plot_creation_metadata.json
 ```
+
+The species feature map uses IMSTE over the standardized 73-feature matrix.
+Its saved coordinates are reused by the static explorer under
+`sites/pathogen-atlas-explorer/` rather than recomputing the embedding in the
+browser. Generated figure files stay in local `data/` and are ignored by Git.
 
 Plot code should consume stable release data, mainly from `data/04_tables/release/`. Diagnostic plots can use interim files when necessary, but those dependencies should be documented.
 
