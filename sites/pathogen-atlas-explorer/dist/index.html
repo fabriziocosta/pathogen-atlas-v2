@@ -231,7 +231,7 @@
       };
       if (selection.kind === 'feature' && (layer === 'missing' || layer === 'zero')) {
         trace.marker.color = '#aeb9c7';
-        trace.marker.opacity = 0.38;
+        trace.marker.opacity = 0.16;
         trace.name = layer === 'zero' ? '0% yes' : 'Not scored';
       } else if (selection.kind === 'feature') {
         trace.marker.color = rows.map((record) => record.features[selection.index]);
