@@ -30,12 +30,14 @@ dev = [
     "pytest>=8.0",
 ]
 viz = [
+    "imste @ git+https://github.com/fabriziocosta/IteratedMinimumSpanningTree.git@0a34b643e0a33f201d2bae36c32297c5c397202e",
     "matplotlib>=3.8",
     "networkx>=3.0",
     "plotly>=5.0",
     "scikit-learn>=1.3",
 ]
 all = [
+    "imste @ git+https://github.com/fabriziocosta/IteratedMinimumSpanningTree.git@0a34b643e0a33f201d2bae36c32297c5c397202e",
     "ipykernel>=6.0",
     "ipython>=8.0",
     "jupyterlab>=4.0",

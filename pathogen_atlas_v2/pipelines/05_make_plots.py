@@ -43,7 +43,32 @@ def build_phase5_plots(config: dict[str, Any] | None = None) -> dict[str, Any]:
         "feature_prevalence": lambda output: plot_feature_prevalence(tables["species_feature_summary"], output, top_n=int(settings.get("top_n_features", 30))),
         "annual_evidence_counts": lambda output: plot_annual_evidence_counts(tables["evidence_records"], output),
         "taxonomy_composition": lambda output: plot_taxonomy_composition(tables["species_summary"], output, rank=str(settings.get("taxonomy_plot_rank", "phylum")), top_n=int(settings.get("top_n_taxa", 20))),
-        "species_feature_space": lambda output: plot_species_feature_space(tables["species_feature_matrix"], output, max_labels=int(settings.get("top_n_labels", 30))),
+        "species_feature_space": lambda output: plot_species_feature_space(
+            tables["species_feature_matrix"],
+            output,
+            max_labels=int(settings.get("feature_space_labels", 8)),
+            feature_panels=int(settings.get("feature_space_panels", 3)),
+            n_msts=int(settings.get("imste_n_msts", 15)),
+            n_epochs=int(settings.get("imste_n_epochs", 300)),
+            random_state=int(settings.get("imste_random_state", 42)),
+            mst_method=str(settings.get("imste_mst_method", "famst")),
+            mst_neighbors=int(settings.get("imste_mst_neighbors", 15)),
+            mst_inter_component_edges=int(settings.get("imste_mst_inter_component_edges", 5)),
+            mst_max_neighbors=(
+                None
+                if settings.get("imste_mst_max_neighbors") is None
+                else int(settings["imste_mst_max_neighbors"])
+            ),
+            negative_ratio=int(settings.get("imste_negative_ratio", 5)),
+            lambda_rep=float(settings.get("imste_lambda_rep", 0.5)),
+            learning_rate=float(settings.get("imste_learning_rate", 0.05)),
+            batch_size=int(settings.get("imste_batch_size", 32768)),
+            epsilon=float(settings.get("imste_epsilon", 1e-4)),
+            logistic_margin=float(settings.get("imste_logistic_margin", 1.0)),
+            logistic_temperature=float(settings.get("imste_logistic_temperature", 0.5)),
+            mst_representatives_per_component=int(settings.get("imste_mst_representatives_per_component", 10)),
+            device=str(settings.get("imste_device", "auto")),
+        ),
     }
     figures = {}
     for index, specification in enumerate(specifications, start=1):
