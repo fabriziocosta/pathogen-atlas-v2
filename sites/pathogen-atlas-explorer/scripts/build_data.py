@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[3]
 RELEASE = ROOT / "data/04_tables/release"
 COORDINATES = ROOT / "data/05_plots/release/species_feature_space_coordinates.parquet"
 SYNONYM_MAPPING = ROOT / "data/01_species/release/species_synonym_mapping.parquet"
+WIKIPEDIA_LINKS = ROOT / "sites/pathogen-atlas-explorer/data/species_wikipedia_links.csv"
 OUTPUT = ROOT / "sites/pathogen-atlas-explorer/dist/explorer-data.json"
 EVIDENCE_DIR = ROOT / "sites/pathogen-atlas-explorer/dist/evidence"
 QUESTION_SET_PATH = ROOT / "configs/domain_expert_questions.yaml"
@@ -47,6 +48,7 @@ def build_payload(
     coordinates: pd.DataFrame,
     pathogenic_index: pd.DataFrame,
     synonym_mapping: pd.DataFrame | None = None,
+    wikipedia_links: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Join release tables into the small client-side explorer contract."""
     required_coordinates = {"canonical_species", "imste_1", "imste_2"}
@@ -63,6 +65,17 @@ def build_payload(
     if pathogenic_index["canonical_species"].duplicated().any():
         raise ValueError("Pathogenic-index table must contain exactly one row per species.")
     index_by_species = pathogenic_index.set_index("canonical_species")["pathogenic_index"].to_dict()
+    wikipedia_by_species: dict[str, str | None] = {}
+    if wikipedia_links is not None:
+        required_wikipedia = {"canonical_species", "wikipedia_url"}
+        if not required_wikipedia.issubset(wikipedia_links.columns):
+            raise ValueError("Wikipedia table is missing canonical_species or wikipedia_url.")
+        if wikipedia_links["canonical_species"].duplicated().any():
+            raise ValueError("Wikipedia table must contain exactly one row per species.")
+        wikipedia_by_species = {
+            str(row.canonical_species): clean_text(row.wikipedia_url)
+            for row in wikipedia_links[["canonical_species", "wikipedia_url"]].itertuples(index=False)
+        }
     synonyms_by_species: dict[str, set[str]] = {}
     if synonym_mapping is not None:
         required_synonyms = {"input_name", "canonical_species", "mapping_type"}
@@ -151,6 +164,16 @@ def build_payload(
     if coordinate_species.duplicated().any():
         examples = coordinate_species.loc[coordinate_species.duplicated(keep=False)].drop_duplicates().head(5).tolist()
         raise ValueError(f"IMSTE coordinates must contain exactly one row per species; duplicates include {examples}.")
+    if wikipedia_links is not None:
+        coordinate_names = set(coordinate_species)
+        wikipedia_names = set(wikipedia_by_species)
+        missing_wikipedia_rows = sorted(coordinate_names - wikipedia_names)[:5]
+        extra_wikipedia_rows = sorted(wikipedia_names - coordinate_names)[:5]
+        if missing_wikipedia_rows or extra_wikipedia_rows:
+            raise ValueError(
+                "Wikipedia lookup table must cover the coordinate species exactly; "
+                f"missing examples: {missing_wikipedia_rows}, extra examples: {extra_wikipedia_rows}."
+            )
     coordinate_rows = coordinates
 
     records: list[dict[str, Any]] = []
@@ -168,6 +191,7 @@ def build_payload(
         records.append(
             {
                 "species": name,
+                "wikipedia_url": wikipedia_by_species.get(name),
                 "x": float(point.imste_1),
                 "y": float(point.imste_2),
                 "taxonomy": taxonomy,
@@ -196,6 +220,7 @@ def build_payload(
         "counts": {
             "species": len(records),
             "species_pmid_records": sum(record["n_pmids"] for record in records),
+            "pubmed_search_records": sum(int(record["n_articles"] or 0) for record in records),
             "features": len(feature_definitions),
             "evidence_shards": len(evidence_shards),
         },
@@ -216,6 +241,7 @@ def main() -> None:
         RELEASE / "species_feature_summary.parquet",
         COORDINATES,
         SYNONYM_MAPPING,
+        WIKIPEDIA_LINKS,
     ]
     missing = [str(path) for path in required_paths if not path.exists()]
     if missing:
@@ -229,6 +255,7 @@ def main() -> None:
         pd.read_parquet(COORDINATES),
         pd.read_parquet(RELEASE / "pathogenic_index.parquet"),
         pd.read_parquet(SYNONYM_MAPPING),
+        pd.read_csv(WIKIPEDIA_LINKS, keep_default_na=False),
     )
     evidence_shards = payload.pop("_evidence_shard_payloads")
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
