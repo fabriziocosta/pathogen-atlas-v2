@@ -39,10 +39,10 @@
           <div class="control-grid">
             <div class="field"><label for="search">Search species</label><input id="search" type="search" placeholder="Name or taxonomic group…" autocomplete="off"></div>
             <div class="field"><label for="colorBy">Color points by</label><select id="colorBy"></select></div>
-            <div class="field"><label for="colorMap">Feature colormap</label><select id="colorMap"><option value="Viridis">Viridis</option><option value="Cividis">Cividis</option><option value="Plasma">Plasma</option><option value="Inferno">Inferno</option><option value="Magma">Magma</option><option value="Turbo">Turbo</option><option value="RdBu">Red–Blue</option><option value="RdYlBu">Red–Yellow–Blue</option><option value="YlGnBu">Yellow–Green–Blue</option><option value="Blues">Blues</option></select></div>
+            <div class="field"><label for="colorMap">Feature colormap</label><select id="colorMap"><option value="Inferno" selected>Inferno</option><option value="Viridis">Viridis</option><option value="Cividis">Cividis</option><option value="Plasma">Plasma</option><option value="Magma">Magma</option><option value="Turbo">Turbo</option><option value="RdBu">Red–Blue</option><option value="RdYlBu">Red–Yellow–Blue</option><option value="YlGnBu">Yellow–Green–Blue</option><option value="Blues">Blues</option></select></div>
           </div>
           <div class="control-options">
-          <div class="toggle-row"><label class="size-toggle" for="reverseColorMap" title="Reverse the selected continuous feature colormap."><input id="reverseColorMap" type="checkbox"><span>Reverse colors</span></label><label class="size-toggle" for="sizeByPathogenicIndex" title="Marker area follows the normalized Pathogen Atlas V2 index, from zero to one."><input id="sizeByPathogenicIndex" type="checkbox"><span>Size by pathogenic index</span></label></div>
+          <div class="toggle-row"><label class="size-toggle" for="reverseColorMap" title="Reverse the selected continuous feature colormap."><input id="reverseColorMap" type="checkbox" checked><span>Reverse colors</span></label><label class="size-toggle" for="sizeByPathogenicIndex" title="Marker area follows the normalized Pathogen Atlas V2 index, from zero to one."><input id="sizeByPathogenicIndex" type="checkbox" checked><span>Size by pathogenic index</span></label></div>
             <button class="button" id="resetView" type="button">Reset map view</button>
           </div>
         </div>
@@ -180,7 +180,7 @@
         }
         select.append(group);
       }
-      select.value = 'taxonomy:phylum';
+      select.value = data.features.some((feature) => feature.id === 'epidemiology') ? 'feature:epidemiology' : 'taxonomy:phylum';
     }
 
     function filteredRecords() {
@@ -452,6 +452,9 @@
       byId('pmidCount').textContent = formatNumber(dataset.counts.species_pmid_records);
       byId('featureCount').textContent = formatNumber(dataset.counts.features);
       addColorOptions(dataset);
+      byId('colorMap').value = 'Inferno';
+      byId('reverseColorMap').checked = true;
+      byId('sizeByPathogenicIndex').checked = true;
       byId('colorBy').addEventListener('change', renderMap);
       byId('colorMap').addEventListener('change', renderMap);
       byId('reverseColorMap').addEventListener('change', renderMap);

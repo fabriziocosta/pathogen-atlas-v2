@@ -24,6 +24,8 @@ newest publication date or highest confidence.
 Each selected species shows its V2 pathogenic index. Enable **Size by
 pathogenic index** to scale point area by its normalized score; clear it to
 return to uniform point sizes.
+The map opens colored by the Epidemiology feature with reversed Inferno and
+pathogenic-index sizing enabled.
 
 ## Build the static data
 
