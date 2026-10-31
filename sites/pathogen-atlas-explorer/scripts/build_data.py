@@ -16,6 +16,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 RELEASE = ROOT / "data/04_tables/release"
 COORDINATES = ROOT / "data/05_plots/release/species_feature_space_coordinates.parquet"
+SYNONYM_MAPPING = ROOT / "data/01_species/release/species_synonym_mapping.parquet"
 OUTPUT = ROOT / "sites/pathogen-atlas-explorer/dist/explorer-data.json"
 EVIDENCE_DIR = ROOT / "sites/pathogen-atlas-explorer/dist/evidence"
 QUESTION_SET_PATH = ROOT / "configs/domain_expert_questions.yaml"
@@ -45,6 +46,7 @@ def build_payload(
     feature_matrix: pd.DataFrame,
     coordinates: pd.DataFrame,
     pathogenic_index: pd.DataFrame,
+    synonym_mapping: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Join release tables into the small client-side explorer contract."""
     required_coordinates = {"canonical_species", "imste_1", "imste_2"}
@@ -61,6 +63,17 @@ def build_payload(
     if pathogenic_index["canonical_species"].duplicated().any():
         raise ValueError("Pathogenic-index table must contain exactly one row per species.")
     index_by_species = pathogenic_index.set_index("canonical_species")["pathogenic_index"].to_dict()
+    synonyms_by_species: dict[str, set[str]] = {}
+    if synonym_mapping is not None:
+        required_synonyms = {"input_name", "canonical_species", "mapping_type"}
+        if not required_synonyms.issubset(synonym_mapping.columns):
+            raise ValueError("Synonym mapping is missing input_name, canonical_species, or mapping_type.")
+        synonym_rows = synonym_mapping.loc[synonym_mapping["mapping_type"].astype(str).str.casefold().eq("synonym")]
+        for alias_value, species_value in synonym_rows[["input_name", "canonical_species"]].itertuples(index=False, name=None):
+            alias = clean_text(alias_value)
+            species = clean_text(species_value)
+            if alias and species and alias.casefold() != species.casefold():
+                synonyms_by_species.setdefault(species, set()).add(alias)
 
     feature_summary_path = RELEASE / "species_feature_summary.parquet"
     feature_summary = pd.read_parquet(
@@ -158,6 +171,7 @@ def build_payload(
                 "x": float(point.imste_1),
                 "y": float(point.imste_2),
                 "taxonomy": taxonomy,
+                "synonyms": sorted(synonyms_by_species.get(name, set()), key=str.casefold),
                 "n_articles": as_optional_number(summary_row.get("n_articles")),
                 "n_sampled": as_optional_number(summary_row.get("n_sampled")),
                 "n_causation": as_optional_number(summary_row.get("n_causation")),
@@ -201,6 +215,7 @@ def main() -> None:
         RELEASE / "species_feature_matrix.parquet",
         RELEASE / "species_feature_summary.parquet",
         COORDINATES,
+        SYNONYM_MAPPING,
     ]
     missing = [str(path) for path in required_paths if not path.exists()]
     if missing:
@@ -213,6 +228,7 @@ def main() -> None:
         pd.read_parquet(RELEASE / "species_feature_matrix.parquet"),
         pd.read_parquet(COORDINATES),
         pd.read_parquet(RELEASE / "pathogenic_index.parquet"),
+        pd.read_parquet(SYNONYM_MAPPING),
     )
     evidence_shards = payload.pop("_evidence_shard_payloads")
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)

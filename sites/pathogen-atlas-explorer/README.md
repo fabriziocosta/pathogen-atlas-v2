@@ -14,8 +14,9 @@ When a feature is selected, the chart hint shows its definition from the
 versioned Jev feature set in `configs/domain_expert_questions.yaml`.
 Use **Min supporting PMIDs** to hide species with fewer accepted pathogen-supporting PubMed records; the map count updates to reflect the filtered set. The default minimum is zero.
 Search by species or taxonomy, zoom and pan the map, and click a point to
-inspect the lineage and the PMIDs accepted by the Phase 3 human pathogen
-evidence threshold. Expand **Pathogen supporting abstracts** to load its PMID
+inspect the lineage, its Phase 1 synonyms, and the PMIDs accepted by the Phase 3
+human pathogen evidence threshold. Taxonomy and synonyms appear side by side in
+the species profile. Expand **Pathogen supporting abstracts** to load its PMID
 list; each PMID opens its PubMed record. PMID data is split into small hashed
 shards and fetched only when the section is expanded, then cached by the
 browser. The initial page load contains the single species coordinate and
