@@ -265,14 +265,34 @@ data/05_plots/release/
 ├── species_evidence_counts.png
 ├── species_feature_space.png
 ├── species_feature_space_coordinates.parquet
+├── species_feature_space.metadata.json
 ├── taxonomy_composition.png
 └── plot_creation_metadata.json
 ```
 
-The species feature map uses IMSTE over the standardized 73-feature matrix.
-Its saved coordinates are reused by the static explorer under
-`sites/pathogen-atlas-explorer/` rather than recomputing the embedding in the
-browser. Generated figure files stay in local `data/` and are ignored by Git.
+The species feature map starts from Phase 4's
+`species_feature_matrix.parquet`. Each value is the fraction of accepted human
+pathogen abstracts for a species that received a “yes” for an expert question;
+question probabilities are thresholded at the configured value (currently
+`0.75`), and failed or missing answers are excluded rather than treated as
+“no”. The pipeline imputes missing species-question values with that feature's
+mean across species, removes all-missing and constant features, and standardizes
+the remaining features before computing Euclidean distances. Species names,
+taxonomy, and pathogenic index are not inputs to the embedding.
+
+IMSTE (Iterated Minimum Spanning Tree Embedding) uses the configured FAMST
+method to construct a sparse, approximate ranked spanning-tree graph over those
+standardized profiles, then optimizes one two-dimensional coordinate per
+species using graph-edge attraction and sampled non-neighbor repulsion. Phase 5
+configuration and the resolved run parameters are recorded in
+`configs/notebook_parameters.yaml` and `species_feature_space.metadata.json`.
+The coordinate table is reused by the static explorer under
+`sites/pathogen-atlas-explorer/`; the browser does not refit the embedding.
+Color values in the map come from the original, unstandardized feature
+prevalences, not the standardized values used to calculate distances. For the
+full processing steps, parameter explanations, and interpretation limits,
+see [embedding methodology](embedding_methodology.md). Generated plot files
+stay in local `data/` and are ignored by Git.
 
 Plot code should consume stable release data, mainly from `data/04_tables/release/`. Diagnostic plots can use interim files when necessary, but those dependencies should be documented.
 
