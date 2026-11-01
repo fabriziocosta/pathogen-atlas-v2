@@ -47,7 +47,7 @@
             <div class="metric" title="Sum of records returned by the per-species PubMed searches; one PMID may occur in searches for multiple species."><strong class="metric-value" id="searchRecordCount">—</strong><span class="metric-label">PubMed search records</span></div>
           </div>
           <div class="plot-count" id="visibleSpeciesCount">Species map</div>
-          <button class="csv-download" id="downloadPathogensCsv" type="button" aria-label="Download CSV of all pathogens, taxonomy, and Pathogenic Interest Index calculations" title="Download all pathogens and their taxonomy, Pathogenic Interest Index, and calculation inputs as CSV"><i class="bi bi-download" aria-hidden="true"></i></button>
+          <button class="csv-download" id="downloadPathogensCsv" type="button" aria-label="Download CSV of all pathogens, taxonomy, feature counts, and Pathogenic Interest Index calculations" title="Download all pathogens, their taxonomy, all 73 feature yes counts, and Pathogenic Interest Index calculation inputs as CSV"><i class="bi bi-download" aria-hidden="true"></i></button>
         </div>
         <div class="explorer-controls">
           <div class="control-grid">
@@ -87,7 +87,8 @@
         const estimate = Number(record.n_causation) / Number(record.n_sampled) * Number(record.n_articles);
         return Math.max(maximum, Math.log(estimate));
       }, 0);
-      const headers = ['species', ...taxonomyRanks.map((rank) => `taxonomy_${rank}`), 'pathogenic_interest_index', 'pathogen_supporting_pmids_n_causation', 'abstracts_fetched_n_sampled', 'pubmed_search_records_n_articles', 'estimated_pathogen_supporting_pmids', 'log_estimated_pathogen_supporting_pmids', 'maximum_log_estimated_pathogen_supporting_pmids'];
+      const featureHeaders = dataset.features.map((feature) => `feature_${feature.id}_yes_count`);
+      const headers = ['species', ...taxonomyRanks.map((rank) => `taxonomy_${rank}`), 'pathogenic_interest_index', 'pathogen_supporting_pmids_n_causation', 'abstracts_fetched_n_sampled', 'pubmed_search_records_n_articles', 'estimated_pathogen_supporting_pmids', 'log_estimated_pathogen_supporting_pmids', 'maximum_log_estimated_pathogen_supporting_pmids', ...featureHeaders];
       const rows = [...eligible].sort((a, b) => a.species.localeCompare(b.species)).map((record) => {
         const causation = Number(record.n_causation);
         const sampled = Number(record.n_sampled);
@@ -95,7 +96,12 @@
         const estimate = causation / sampled * articles;
         const logEstimate = Math.log(estimate);
         const index = maximumLogEstimate > 0 ? logEstimate / maximumLogEstimate : 0;
-        return [record.species, ...taxonomyRanks.map((rank) => record.taxonomy?.[rank] || ''), index, causation, sampled, articles, estimate, logEstimate, maximumLogEstimate];
+        const featureYesCounts = dataset.features.map((feature, featureIndex) => {
+          const fractionYes = record.features?.[featureIndex];
+          const scoredCount = record.feature_answered?.[featureIndex];
+          return fractionYes == null || scoredCount == null ? '' : Math.round(Number(fractionYes) * Number(scoredCount));
+        });
+        return [record.species, ...taxonomyRanks.map((rank) => record.taxonomy?.[rank] || ''), index, causation, sampled, articles, estimate, logEstimate, maximumLogEstimate, ...featureYesCounts];
       });
       const csv = [headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n');
       const url = URL.createObjectURL(new Blob(['\ufeff', csv], {type: 'text/csv;charset=utf-8'}));
