@@ -789,7 +789,10 @@
       byId('minPathogenPmids').addEventListener('input', renderMap);
       byId('downloadPathogensCsv').addEventListener('click', downloadPathogensCsv);
       byId('resetView').addEventListener('click', () => Plotly.relayout(byId('map'), {'xaxis.autorange': true, 'yaxis.autorange': true}));
-      if (dataset.species.some((record) => record.species === 'Salmonella enterica')) {
+      const requestedSpecies = new URLSearchParams(window.location.search).get('species');
+      if (requestedSpecies && dataset.species.some((record) => record.species === requestedSpecies)) {
+        selectSpecies(requestedSpecies);
+      } else if (dataset.species.some((record) => record.species === 'Salmonella enterica')) {
         selectSpecies('Salmonella enterica');
       } else {
         renderMap();
