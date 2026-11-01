@@ -45,6 +45,10 @@ return to uniform point sizes.
 The map opens with **Salmonella enterica** selected and colored by the
 Epidemiology feature, with reversed Inferno and Pathogenic Interest Index
 sizing enabled.
+To open a species profile directly, append `?species=` and the URL-encoded
+species name to the explorer URL, for example `?species=Escherichia%20coli`.
+If a requested name is not in the explorer dataset, the map shows a message
+instead of selecting a different species.
 
 ## Build the static data
 
