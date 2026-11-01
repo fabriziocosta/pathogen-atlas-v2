@@ -20,6 +20,7 @@ COORDINATES = ROOT / "data/05_plots/release/species_feature_space_coordinates.pa
 SYNONYM_MAPPING = ROOT / "data/01_species/release/species_synonym_mapping.parquet"
 FEATURE_ANSWERS = RELEASE / "domain_expert_answers.parquet"
 WIKIPEDIA_LINKS = ROOT / "sites/pathogen-atlas-explorer/data/species_wikipedia_links.csv"
+GBIF_LINKS = ROOT / "sites/pathogen-atlas-explorer/data/species_gbif_links.csv"
 OUTPUT = ROOT / "sites/pathogen-atlas-explorer/dist/explorer-data.json"
 BRAND_LOGO = ROOT / "assets/pathogen-atlas-logo.png"
 BRAND_LOGO_OUTPUT = OUTPUT.parent / "assets/pathogen-atlas-logo.png"
@@ -54,6 +55,7 @@ def build_payload(
     synonym_mapping: pd.DataFrame | None = None,
     wikipedia_links: pd.DataFrame | None = None,
     feature_answers: pd.DataFrame | None = None,
+    gbif_links: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Join release tables into the small client-side explorer contract."""
     required_coordinates = {"canonical_species", "imste_1", "imste_2"}
@@ -80,6 +82,17 @@ def build_payload(
         wikipedia_by_species = {
             str(row.canonical_species): clean_text(row.wikipedia_url)
             for row in wikipedia_links[["canonical_species", "wikipedia_url"]].itertuples(index=False)
+        }
+    gbif_by_species: dict[str, str | None] = {}
+    if gbif_links is not None:
+        required_gbif = {"canonical_species", "gbif_url"}
+        if not required_gbif.issubset(gbif_links.columns):
+            raise ValueError("GBIF table is missing canonical_species or gbif_url.")
+        if gbif_links["canonical_species"].duplicated().any():
+            raise ValueError("GBIF table must contain exactly one row per species.")
+        gbif_by_species = {
+            str(row.canonical_species): clean_text(row.gbif_url)
+            for row in gbif_links[["canonical_species", "gbif_url"]].itertuples(index=False)
         }
     synonyms_by_species: dict[str, set[str]] = {}
     if synonym_mapping is not None:
@@ -199,6 +212,16 @@ def build_payload(
                 "Wikipedia lookup table must cover the coordinate species exactly; "
                 f"missing examples: {missing_wikipedia_rows}, extra examples: {extra_wikipedia_rows}."
             )
+    if gbif_links is not None:
+        coordinate_names = set(coordinate_species)
+        gbif_names = set(gbif_by_species)
+        missing_gbif_rows = sorted(coordinate_names - gbif_names)[:5]
+        extra_gbif_rows = sorted(gbif_names - coordinate_names)[:5]
+        if missing_gbif_rows or extra_gbif_rows:
+            raise ValueError(
+                "GBIF lookup table must cover the coordinate species exactly; "
+                f"missing examples: {missing_gbif_rows}, extra examples: {extra_gbif_rows}."
+            )
     coordinate_rows = coordinates
 
     records: list[dict[str, Any]] = []
@@ -217,6 +240,7 @@ def build_payload(
             {
                 "species": name,
                 "wikipedia_url": wikipedia_by_species.get(name),
+                "gbif_url": gbif_by_species.get(name),
                 "x": float(point.imste_1),
                 "y": float(point.imste_2),
                 "taxonomy": taxonomy,
@@ -242,7 +266,7 @@ def build_payload(
     ).hexdigest()[:16]
 
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "evidence_version": evidence_version,
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "source": "Pathogen Atlas V2 Phase 4 accepted evidence and Phase 5 IMSTE coordinates",
@@ -272,6 +296,7 @@ def main() -> None:
         COORDINATES,
         SYNONYM_MAPPING,
         WIKIPEDIA_LINKS,
+        GBIF_LINKS,
         BRAND_LOGO,
     ]
     missing = [str(path) for path in required_paths if not path.exists()]
@@ -280,14 +305,15 @@ def main() -> None:
             "Build Phase 4 tables and run Phase 5 IMSTE plots first. Missing: " + ", ".join(missing)
         )
     payload = build_payload(
-        pd.read_parquet(RELEASE / "evidence_records.parquet"),
-        pd.read_parquet(RELEASE / "species_summary.parquet"),
-        pd.read_parquet(RELEASE / "species_feature_matrix.parquet"),
-        pd.read_parquet(COORDINATES),
-        pd.read_parquet(RELEASE / "pathogenic_index.parquet"),
-        pd.read_parquet(SYNONYM_MAPPING),
-        pd.read_csv(WIKIPEDIA_LINKS, keep_default_na=False),
-        pd.read_parquet(FEATURE_ANSWERS, columns=["canonical_species", "pmid", "question_id", "answer_yes"]),
+        evidence=pd.read_parquet(RELEASE / "evidence_records.parquet"),
+        species_summary=pd.read_parquet(RELEASE / "species_summary.parquet"),
+        feature_matrix=pd.read_parquet(RELEASE / "species_feature_matrix.parquet"),
+        coordinates=pd.read_parquet(COORDINATES),
+        pathogenic_index=pd.read_parquet(RELEASE / "pathogenic_index.parquet"),
+        synonym_mapping=pd.read_parquet(SYNONYM_MAPPING),
+        wikipedia_links=pd.read_csv(WIKIPEDIA_LINKS, keep_default_na=False),
+        feature_answers=pd.read_parquet(FEATURE_ANSWERS, columns=["canonical_species", "pmid", "question_id", "answer_yes"]),
+        gbif_links=pd.read_csv(GBIF_LINKS, keep_default_na=False),
     )
     evidence_shards = payload.pop("_evidence_shard_payloads")
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)

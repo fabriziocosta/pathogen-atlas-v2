@@ -51,12 +51,18 @@ sizing enabled.
 Build the Phase 4 tables and Phase 5 plots first. Phase 5 writes the exact
 coordinates used by `species_feature_space.png` to
 `data/05_plots/release/species_feature_space_coordinates.parquet`. Then create
-or refresh the species article lookup table, then create the browser dataset:
+or refresh the Wikipedia and GBIF taxon lookup tables, then create the browser
+dataset:
 
 ```bash
-python sites/pathogen-atlas-explorer/scripts/build_wikipedia_links.py
+jupyter nbconvert --to notebook --execute notebooks/06_wikipedia_references.ipynb --output /tmp/06_wikipedia_references.ipynb
+jupyter nbconvert --to notebook --execute notebooks/07_gbif_references.ipynb --output /tmp/07_gbif_references.ipynb
 python sites/pathogen-atlas-explorer/scripts/build_data.py
 ```
+
+Each notebook calls its corresponding lookup script and previews the saved
+association table. Both reuse completed species rows; set `FORCE_REFRESH` to
+`True` in a notebook to redo every lookup.
 
 `build_wikipedia_links.py` queries the English Wikipedia API in small batches,
 follows title normalization and redirects, and resumes rows already written to
@@ -64,14 +70,17 @@ follows title normalization and redirects, and resumes rows already written to
 only exact title/redirect matches, not fuzzy search results. The CSV has one row
 per coordinate species and an empty URL when no article exists.
 
+`build_gbif_links.py` matches species names against the GBIF Backbone using the
+domain as a taxonomy hint. Following the [GBIF API beginner guide](https://data-blog.gbif.org/post/gbif-api-beginners-guide/), it uses the species name matcher to obtain taxon keys; the resolver batches names with the current v2 API for efficiency. It resumes cached results and adds a GBIF taxon page only for an exact, species-rank name match; unmatched names have an empty URL rather than a potentially incorrect taxon link.
+
 This writes `sites/pathogen-atlas-explorer/dist/explorer-data.json` from the
 accepted evidence, taxonomy, feature matrix, and saved IMSTE coordinates. It
 also writes compact species-keyed files under `dist/evidence/`; these contain
 only accepted PubMed IDs, titles, years, and DOI values. The build stops if
 the coordinate table has duplicate species or the evidence table has no
 acceptance flag, and includes the `pathogenic_index.parquet` data table for Pathogenic Interest Index marker sizing.
-The payload includes total PubMed search records and the Wikipedia URL from the
-lookup table. The build also copies the repository logo into `dist/assets/` for
+The payload includes total PubMed search records and the Wikipedia and GBIF URLs
+from their lookup tables. The build also copies the repository logo into `dist/assets/` for
 the explorer header. Rebuild it after updating the Phase 4 tables or rerunning
 the IMSTE embedding.
 

@@ -9,6 +9,7 @@ followed; fuzzy search results are intentionally not treated as matches.
 
 from __future__ import annotations
 
+import argparse
 import csv
 import json
 import time
@@ -105,7 +106,7 @@ def write_table(rows: dict[str, dict[str, str | None]]) -> None:
             writer.writerow({"canonical_species": name, **rows[name]})
 
 
-def main() -> None:
+def main(force_refresh: bool = False) -> None:
     if not COORDINATES.exists():
         raise FileNotFoundError(f"Build Phase 5 coordinates first: {COORDINATES}")
     names = sorted(
@@ -117,7 +118,7 @@ def main() -> None:
         raise ValueError("Coordinate table contains no species names.")
 
     rows: dict[str, dict[str, str | None]] = {}
-    if OUTPUT.exists():
+    if OUTPUT.exists() and not force_refresh:
         previous = pd.read_csv(OUTPUT, keep_default_na=False)
         if {"canonical_species", "wikipedia_title", "wikipedia_url", "match_status", "match_type"}.issubset(previous.columns):
             allowed = set(names)
@@ -142,4 +143,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--force-refresh", action="store_true", help="Redo all Wikipedia article lookups.")
+    main(force_refresh=parser.parse_args().force_refresh)

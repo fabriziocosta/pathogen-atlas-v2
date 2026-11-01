@@ -1,8 +1,9 @@
 # Notebooks
 
-Use notebooks for inspection, quality control, and exploratory analysis only.
-
-Reusable logic belongs in `pathogen_atlas_v2/`.
+Use notebooks to expose pipeline parameters, show the concrete work invoked,
+and inspect its outputs. Core scientific and API logic lives in
+`pathogen_atlas_v2/` or, for static web-data lookups, in
+`sites/pathogen-atlas-explorer/scripts/`.
 
 Notebook sequence:
 
@@ -15,8 +16,15 @@ Notebook sequence:
 6. `03_abstract_decisions.ipynb`
 7. `04_table_creation.ipynb`
 8. `05_plot_creation.ipynb`
+9. `06_wikipedia_references.ipynb`
+10. `07_gbif_references.ipynb`
 
-Each notebook is a thin orchestration layer: set parameters, invoke the matching Python pipeline, and inspect outputs.
+Pipeline notebooks are thin orchestration layers: set parameters, invoke the
+matching Python pipeline, and inspect outputs. Phases 6 and 7 resolve
+resumable Wikipedia and GBIF associations used to build the web explorer
+dataset. Phase 7 follows the GBIF name matcher described in the [GBIF API
+beginner guide](https://data-blog.gbif.org/post/gbif-api-beginners-guide/),
+using its batch API for the full species list.
 Shared notebook parameters are configured in `00_configure_pipeline.ipynb`
 and saved to `configs/notebook_parameters.yaml`.
 
