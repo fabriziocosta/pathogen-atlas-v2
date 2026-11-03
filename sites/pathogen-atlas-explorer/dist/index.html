@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore human pathogen evidence, domain-expert features, taxonomy, and PubMed records by species.">
-  <title>Pathogen Atlas V2 v2.0.9 · Evidence Explorer</title>
+  <title>Pathogen Atlas V2 v2.0.10 · Evidence Explorer</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     :root{color-scheme:light;--ink:#132a43;--muted:#63758b;--line:#dce5ed;--canvas:#f1f5f6;--surface:#fff;--teal:#14756e;--teal-dark:#0f625d;--mint:#eaf5f2;--shadow:0 8px 28px rgba(24,49,69,.055)}
@@ -38,7 +38,7 @@
 <body>
   <main class="shell">
     <header class="page-header">
-      <div class="page-title-row"><h1 class="page-title"><img class="title-logo" src="./assets/pathogen-atlas-logo.png?v=2.0.9" alt=""><span>Pathogen Atlas</span><span class="title-version">v2.0.9</span></h1><div class="badge" id="dataBadge">Loading species data…</div></div>
+      <div class="page-title-row"><h1 class="page-title"><img class="title-logo" src="./assets/pathogen-atlas-logo.png?v=2.0.10" alt=""><span>Pathogen Atlas</span><span class="title-version">v2.0.10</span></h1><div class="badge" id="dataBadge">Loading species data…</div></div>
       <p class="intro">Explore how documented pathogen features vary across species and taxonomic groups. Color the map by a feature or taxonomic rank, then open a species profile to review its synonyms, feature scores, and PubMed abstracts supporting its association with human disease.</p>
     </header>
     <section class="workspace">
@@ -58,7 +58,7 @@
         </div>
         <div class="explorer-controls">
           <div class="control-grid">
-            <div class="field"><label for="search">Search species</label><input id="search" type="search" placeholder="Name or taxonomic group…" autocomplete="off"></div>
+            <div class="field"><label for="search">Search species</label><input id="search" type="search" placeholder="Name, synonym, or taxonomic group…" autocomplete="off"></div>
             <div class="field"><label for="colorBy">Color points by</label><select id="colorBy"></select></div>
           </div>
           <div class="control-options">
@@ -298,7 +298,8 @@
       const minimumPmids = Math.max(0, Math.floor(Number(byId('minPathogenPmids').value) || 0));
       return dataset.species.filter((record) => {
         const taxonomy = Object.values(record.taxonomy || {}).filter(Boolean).join(' ');
-        const matchesSearch = !query || `${record.species} ${taxonomy}`.toLocaleLowerCase().includes(query);
+        const synonyms = Array.isArray(record.synonyms) ? record.synonyms.join(' ') : '';
+        const matchesSearch = !query || `${record.species} ${synonyms} ${taxonomy}`.toLocaleLowerCase().includes(query);
         return matchesSearch && Number(record.n_pmids || 0) >= minimumPmids;
       });
     }

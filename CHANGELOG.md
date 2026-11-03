@@ -3,6 +3,10 @@
 Pathogen Atlas V2 follows semantic versioning. Release tags use the form
 `vMAJOR.MINOR.PATCH`.
 
+## [2.0.10] - 2026-11-03
+
+- Include recorded synonyms in the species search.
+
 ## [2.0.9] - 2026-11-03
 
 - Give the main map a responsive fixed height so redraws do not overlap the lower plot.
