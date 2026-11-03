@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore human pathogen evidence, domain-expert features, taxonomy, and PubMed records by species.">
-  <title>Pathogen Atlas V2 v2.0.5 · Evidence Explorer</title>
+  <title>Pathogen Atlas V2 v2.0.6 · Evidence Explorer</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     :root{color-scheme:light;--ink:#132a43;--muted:#63758b;--line:#dce5ed;--canvas:#f1f5f6;--surface:#fff;--teal:#14756e;--teal-dark:#0f625d;--mint:#eaf5f2;--shadow:0 8px 28px rgba(24,49,69,.055)}
@@ -35,7 +35,7 @@
 <body>
   <main class="shell">
     <header class="page-header">
-      <div class="page-title-row"><h1 class="page-title"><img class="title-logo" src="./assets/pathogen-atlas-logo.png?v=2.0.5" alt=""><span>Pathogen Atlas</span><span class="title-version">v2.0.5</span></h1><div class="badge" id="dataBadge">Loading species data…</div></div>
+      <div class="page-title-row"><h1 class="page-title"><img class="title-logo" src="./assets/pathogen-atlas-logo.png?v=2.0.6" alt=""><span>Pathogen Atlas</span><span class="title-version">v2.0.6</span></h1><div class="badge" id="dataBadge">Loading species data…</div></div>
       <p class="intro">Explore how documented pathogen features vary across species and taxonomic groups. Color the map by a feature or taxonomic rank, then open a species profile to review its synonyms, feature scores, and PubMed abstracts supporting its association with human disease.</p>
     </header>
     <section class="workspace">
@@ -407,7 +407,7 @@
         };
         if(byId('sizeByPathogenicIndex').checked){marker.sizemode='area';marker.sizeref=1/(24*24);marker.sizemin=4;}
         if(mode==='gray') marker.color='#aeb9c7';
-        else if(numericColor){marker.color=selectedIndices.map(i=>Number(visible[i].color));marker.colorscale=extraColorScales[byId('colorMap').value]||byId('colorMap').value;marker.reversescale=byId('reverseColorMap').checked;marker.cmin=0;marker.cmax=1;marker.showscale=true;marker.colorbar={title:{text:colorSelection.label,side:'right'},thickness:13,len:.72,tickformat:'.0%'};}
+        else if(numericColor){marker.color=selectedIndices.map(i=>Number(visible[i].color));marker.colorscale=extraColorScales[byId('colorMap').value]||byId('colorMap').value;marker.reversescale=byId('reverseColorMap').checked;marker.cmin=0;marker.cmax=1;marker.showscale=true;marker.colorbar={x:1.07,thickness:13,len:.72,tickformat:'.0%'};}
         else marker.color=selectedIndices.map(i=>palette[categories.indexOf(String(visible[i].color||'Unclassified'))%palette.length]);
         return {type:'scattergl',mode:'markers',x:selectedIndices.map(i=>x.values[i]),y:selectedIndices.map(i=>y.values[i]),text:selectedIndices.map(i=>visible[i].record.species),customdata:selectedIndices.map(i=>[visible[i].record.species,formatHoverValue(visible[i].x),formatHoverValue(visible[i].y),formatHoverValue(visible[i].color)]),hovertemplate:'<b>%{customdata[0]}</b><br>'+xSelection.label+': %{customdata[1]}<br>'+ySelection.label+': %{customdata[2]}<br>'+colorSelection.label+': %{customdata[3]}<extra></extra>',marker,showlegend:false};
       };
@@ -415,7 +415,7 @@
       else if(colored.length){for(const category of categories){const subset=colored.filter(i=>String(visible[i].color||'Unclassified')===category);const trace=makeTrace(subset,'category');trace.name=category;trace.showlegend=categories.length<=12;traces.push(trace);}}
       if(gray.length)traces.push(makeTrace(gray,'gray'));
       const showColorbar=numericColor&&colored.length>0;
-      const layout={margin:{l:y.ticks?160:72,r:showColorbar?112:25,t:20,b:x.ticks?135:62},paper_bgcolor:'#fff',plot_bgcolor:'#fff',font:{family:'Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif',color:'#29425f',size:11},xaxis:{title:{text:xSelection.label,standoff:x.ticks?30:20},...(x.ticks||{}),showgrid:true,gridcolor:'#edf1f6'},yaxis:{title:{text:ySelection.label,standoff:y.ticks?34:20},...(y.ticks||{}),automargin:true,showgrid:true,gridcolor:'#edf1f6'},hovermode:'closest',showlegend:!numericColor&&categories.length<=12,legend:{orientation:'h',y:-.18,x:0,font:{size:10}}};
+      const layout={margin:{l:y.ticks?160:72,r:showColorbar?112:25,t:20,b:x.ticks?135:62},paper_bgcolor:'#fff',plot_bgcolor:'#fff',font:{family:'Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif',color:'#29425f',size:11},xaxis:{title:{text:xSelection.label,standoff:x.ticks?30:20},...(x.ticks||{}),showgrid:true,gridcolor:'#edf1f6'},yaxis:{title:{text:ySelection.label,standoff:y.ticks?34:20},...(y.ticks||{}),automargin:true,showgrid:true,gridcolor:'#edf1f6'},hovermode:'closest',showlegend:!numericColor&&categories.length<=12,legend:{orientation:'h',y:-.18,x:0,font:{size:10}},annotations:showColorbar?[{text:colorSelection.label,xref:'paper',yref:'paper',x:1.035,y:.5,textangle:-90,showarrow:false,xanchor:'center',yanchor:'middle',font:{color:'#29425f',size:11}}]:[]};
       Plotly.newPlot(plot,traces,layout,{responsive:true,displaylogo:false});
       plot.on('plotly_click',event=>{const name=event.points?.[0]?.customdata?.[0],record=dataset.species.find(item=>item.species===name);if(record)selectSpecies(name);});
       byId('secondary-hint').textContent=`Showing ${visible.length} species with values on both axes${gray.length?`, including ${gray.length} gray with zero or unscored values`:''}. Color follows ${colorSelection.label}; size follows the selections above.`;
