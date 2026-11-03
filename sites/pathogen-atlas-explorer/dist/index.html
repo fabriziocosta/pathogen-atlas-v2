@@ -405,7 +405,7 @@
         };
         if(byId('sizeByPathogenicIndex').checked){marker.sizemode='area';marker.sizeref=1/(24*24);marker.sizemin=4;}
         if(mode==='gray') marker.color='#aeb9c7';
-        else if(numericColor){marker.color:selectedIndices.map(i=>Number(visible[i].color));marker.colorscale=extraColorScales[byId('colorMap').value]||byId('colorMap').value;marker.reversescale=byId('reverseColorMap').checked;marker.cmin=0;marker.cmax=1;marker.showscale=true;marker.colorbar={title:{text:colorSelection.label,side:'right'},thickness:13,len:.72,tickformat:'.0%'};}
+        else if(numericColor){marker.color=selectedIndices.map(i=>Number(visible[i].color));marker.colorscale=extraColorScales[byId('colorMap').value]||byId('colorMap').value;marker.reversescale=byId('reverseColorMap').checked;marker.cmin=0;marker.cmax=1;marker.showscale=true;marker.colorbar={title:{text:colorSelection.label,side:'right'},thickness:13,len:.72,tickformat:'.0%'};}
         else marker.color=selectedIndices.map(i=>palette[categories.indexOf(String(visible[i].color||'Unclassified'))%palette.length]);
         return {type:'scattergl',mode:'markers',x:selectedIndices.map(i=>x.values[i]),y:selectedIndices.map(i=>y.values[i]),text:selectedIndices.map(i=>visible[i].record.species),customdata:selectedIndices.map(i=>[visible[i].record.species,visible[i].x,visible[i].y,visible[i].color]),hovertemplate:'<b>%{customdata[0]}</b><br>'+xSelection.label+': %{customdata[1]}<br>'+ySelection.label+': %{customdata[2]}<br>'+colorSelection.label+': %{customdata[3]}<extra></extra>',marker,showlegend:false};
       };
