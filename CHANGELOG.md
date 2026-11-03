@@ -3,6 +3,10 @@
 Pathogen Atlas V2 follows semantic versioning. Release tags use the form
 `vMAJOR.MINOR.PATCH`.
 
+## [2.0.5] - 2026-11-03
+
+- Center the lower plot status line and round hover values to three decimal places.
+
 ## [2.0.4] - 2026-11-03
 
 - Center the lower plot status line.

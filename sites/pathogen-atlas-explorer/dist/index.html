@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore human pathogen evidence, domain-expert features, taxonomy, and PubMed records by species.">
-  <title>Pathogen Atlas V2 v2.0.4 · Evidence Explorer</title>
+  <title>Pathogen Atlas V2 v2.0.5 · Evidence Explorer</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     :root{color-scheme:light;--ink:#132a43;--muted:#63758b;--line:#dce5ed;--canvas:#f1f5f6;--surface:#fff;--teal:#14756e;--teal-dark:#0f625d;--mint:#eaf5f2;--shadow:0 8px 28px rgba(24,49,69,.055)}
@@ -35,7 +35,7 @@
 <body>
   <main class="shell">
     <header class="page-header">
-      <div class="page-title-row"><h1 class="page-title"><img class="title-logo" src="./assets/pathogen-atlas-logo.png?v=2.0.4" alt=""><span>Pathogen Atlas</span><span class="title-version">v2.0.4</span></h1><div class="badge" id="dataBadge">Loading species data…</div></div>
+      <div class="page-title-row"><h1 class="page-title"><img class="title-logo" src="./assets/pathogen-atlas-logo.png?v=2.0.5" alt=""><span>Pathogen Atlas</span><span class="title-version">v2.0.5</span></h1><div class="badge" id="dataBadge">Loading species data…</div></div>
       <p class="intro">Explore how documented pathogen features vary across species and taxonomic groups. Color the map by a feature or taxonomic rank, then open a species profile to review its synonyms, feature scores, and PubMed abstracts supporting its association with human disease.</p>
     </header>
     <section class="workspace">
@@ -394,6 +394,7 @@
         return {values:values.map(value => categories.indexOf(String(value))), ticks:{tickmode:'array',tickvals:categories.map((_,i)=>i),ticktext:categories}};
       };
       const x=encodeAxis(visible.map(row=>row.x)), y=encodeAxis(visible.map(row=>row.y));
+      const formatHoverValue=value=>value==null?'Not scored':Number.isFinite(Number(value))?Number(value).toFixed(3):String(value);
       const colorValues=visible.map(row=>row.color), numericColor=colorSelection.kind==='feature';
       const categories=numericColor?[]:[...new Set(colorValues.map(value=>String(value||'Unclassified')))].sort((a,b)=>a.localeCompare(b));
       const palette=window.pathogenAtlasPalette || ['#2166ac','#e08214','#1b9e77','#7570b3','#d95f02','#66a61e','#e7298a','#1f9e89','#a6761d','#386cb0','#f0027f','#7fc97f','#beaed4','#fdc086','#ffff99','#bf5b17','#80b1d3','#fb8072','#8dd3c7','#bebada'];
@@ -408,7 +409,7 @@
         if(mode==='gray') marker.color='#aeb9c7';
         else if(numericColor){marker.color=selectedIndices.map(i=>Number(visible[i].color));marker.colorscale=extraColorScales[byId('colorMap').value]||byId('colorMap').value;marker.reversescale=byId('reverseColorMap').checked;marker.cmin=0;marker.cmax=1;marker.showscale=true;marker.colorbar={title:{text:colorSelection.label,side:'right'},thickness:13,len:.72,tickformat:'.0%'};}
         else marker.color=selectedIndices.map(i=>palette[categories.indexOf(String(visible[i].color||'Unclassified'))%palette.length]);
-        return {type:'scattergl',mode:'markers',x:selectedIndices.map(i=>x.values[i]),y:selectedIndices.map(i=>y.values[i]),text:selectedIndices.map(i=>visible[i].record.species),customdata:selectedIndices.map(i=>[visible[i].record.species,visible[i].x,visible[i].y,visible[i].color]),hovertemplate:'<b>%{customdata[0]}</b><br>'+xSelection.label+': %{customdata[1]}<br>'+ySelection.label+': %{customdata[2]}<br>'+colorSelection.label+': %{customdata[3]}<extra></extra>',marker,showlegend:false};
+        return {type:'scattergl',mode:'markers',x:selectedIndices.map(i=>x.values[i]),y:selectedIndices.map(i=>y.values[i]),text:selectedIndices.map(i=>visible[i].record.species),customdata:selectedIndices.map(i=>[visible[i].record.species,formatHoverValue(visible[i].x),formatHoverValue(visible[i].y),formatHoverValue(visible[i].color)]),hovertemplate:'<b>%{customdata[0]}</b><br>'+xSelection.label+': %{customdata[1]}<br>'+ySelection.label+': %{customdata[2]}<br>'+colorSelection.label+': %{customdata[3]}<extra></extra>',marker,showlegend:false};
       };
       if(numericColor){if(colored.length)traces.push(makeTrace(colored,'numeric'));}
       else if(colored.length){for(const category of categories){const subset=colored.filter(i=>String(visible[i].color||'Unclassified')===category);const trace=makeTrace(subset,'category');trace.name=category;trace.showlegend=categories.length<=12;traces.push(trace);}}
