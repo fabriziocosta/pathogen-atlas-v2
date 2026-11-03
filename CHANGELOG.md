@@ -3,6 +3,10 @@
 Pathogen Atlas V2 follows semantic versioning. Release tags use the form
 `vMAJOR.MINOR.PATCH`.
 
+## [2.0.8] - 2026-11-03
+
+- Match tooltip backgrounds to each point color in both explorer plots.
+
 ## [2.0.7] - 2026-11-03
 
 - Restyle the explorer summary as a pathogen coverage header with dataset metrics and a labeled CSV button.

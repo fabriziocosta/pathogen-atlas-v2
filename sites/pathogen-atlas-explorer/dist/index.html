@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore human pathogen evidence, domain-expert features, taxonomy, and PubMed records by species.">
-  <title>Pathogen Atlas V2 v2.0.7 · Evidence Explorer</title>
+  <title>Pathogen Atlas V2 v2.0.8 · Evidence Explorer</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     :root{color-scheme:light;--ink:#132a43;--muted:#63758b;--line:#dce5ed;--canvas:#f1f5f6;--surface:#fff;--teal:#14756e;--teal-dark:#0f625d;--mint:#eaf5f2;--shadow:0 8px 28px rgba(24,49,69,.055)}
@@ -38,7 +38,7 @@
 <body>
   <main class="shell">
     <header class="page-header">
-      <div class="page-title-row"><h1 class="page-title"><img class="title-logo" src="./assets/pathogen-atlas-logo.png?v=2.0.7" alt=""><span>Pathogen Atlas</span><span class="title-version">v2.0.7</span></h1><div class="badge" id="dataBadge">Loading species data…</div></div>
+      <div class="page-title-row"><h1 class="page-title"><img class="title-logo" src="./assets/pathogen-atlas-logo.png?v=2.0.8" alt=""><span>Pathogen Atlas</span><span class="title-version">v2.0.8</span></h1><div class="badge" id="dataBadge">Loading species data…</div></div>
       <p class="intro">Explore how documented pathogen features vary across species and taxonomic groups. Color the map by a feature or taxonomic rank, then open a species profile to review its synonyms, feature scores, and PubMed abstracts supporting its association with human disease.</p>
     </header>
     <section class="workspace">
@@ -129,6 +129,34 @@
       Plasma: [[0,'#0d0887'],[0.1111,'#46039f'],[0.2222,'#7201a8'],[0.3333,'#9c179e'],[0.4444,'#bd3786'],[0.5556,'#d8576b'],[0.6667,'#ed7953'],[0.7778,'#fb9f3a'],[0.8889,'#fdca26'],[1,'#f0f921']],
       Turbo: [[0,'#30123b'],[0.0714,'#4145ab'],[0.1429,'#4675ed'],[0.2143,'#39a2fc'],[0.2857,'#1bcfd4'],[0.3571,'#24eca6'],[0.4286,'#61fc6c'],[0.5,'#a4fc3b'],[0.5714,'#d1e834'],[0.6429,'#f3c63a'],[0.7143,'#fe9b2d'],[0.7857,'#f36315'],[0.8571,'#d93806'],[0.9286,'#b11901'],[1,'#7a0402']],
       RdYlBu: [[0,'rgb(165,0,38)'],[0.1,'rgb(215,48,39)'],[0.2,'rgb(244,109,67)'],[0.3,'rgb(253,174,97)'],[0.4,'rgb(254,224,144)'],[0.5,'rgb(255,255,191)'],[0.6,'rgb(224,243,248)'],[0.7,'rgb(171,217,233)'],[0.8,'rgb(116,173,209)'],[0.9,'rgb(69,117,180)'],[1,'rgb(49,54,149)']],
+    };
+    const builtInColorScales = {
+      Viridis: [[0,'#440154'],[.062745,'#48186a'],[.12549,'#472d7b'],[.188235,'#424086'],[.25098,'#3b528b'],[.313725,'#33638d'],[.376471,'#2c728e'],[.439216,'#26828e'],[.501961,'#21918c'],[.564706,'#1fa088'],[.627451,'#28ae80'],[.690196,'#3fbc73'],[.752941,'#5ec962'],[.815686,'#84d44b'],[.878431,'#addc30'],[.941176,'#d8e219'],[1,'#fde725']],
+      Cividis: [[0,'rgb(0,32,76)'],[.058824,'rgb(0,42,102)'],[.117647,'rgb(0,52,110)'],[.176471,'rgb(39,63,108)'],[.235294,'rgb(60,74,107)'],[.294118,'rgb(76,85,107)'],[.352941,'rgb(91,95,109)'],[.411765,'rgb(104,106,112)'],[.470588,'rgb(117,117,117)'],[.529412,'rgb(131,129,120)'],[.588235,'rgb(146,140,120)'],[.647059,'rgb(161,152,118)'],[.705882,'rgb(176,165,114)'],[.764706,'rgb(192,177,109)'],[.823529,'rgb(209,191,102)'],[.882353,'rgb(225,204,92)'],[.941176,'rgb(243,219,79)'],[1,'rgb(255,233,69)']],
+      RdBu: [[0,'rgb(5,10,172)'],[.35,'rgb(106,137,247)'],[.5,'rgb(190,190,190)'],[.6,'rgb(220,170,132)'],[.7,'rgb(230,145,90)'],[1,'rgb(178,10,28)']],
+      YlGnBu: [[0,'rgb(8,29,88)'],[.125,'rgb(37,52,148)'],[.25,'rgb(34,94,168)'],[.375,'rgb(29,145,192)'],[.5,'rgb(65,182,196)'],[.625,'rgb(127,205,187)'],[.75,'rgb(199,233,180)'],[.875,'rgb(237,248,217)'],[1,'rgb(255,255,217)']],
+      Blues: [[0,'rgb(5,10,172)'],[.35,'rgb(40,60,190)'],[.5,'rgb(70,100,245)'],[.6,'rgb(90,120,245)'],[.7,'rgb(106,137,247)'],[1,'rgb(220,220,220)']],
+    };
+    const parseRgb = color => {
+      const hex = String(color).match(/^#([\da-f]{3}|[\da-f]{6})$/i);
+      if (hex) { const value = hex[1].length === 3 ? hex[1].split('').map(ch => ch + ch).join('') : hex[1]; return [0,2,4].map(i => parseInt(value.slice(i,i+2),16)); }
+      const rgb = String(color).match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+      return rgb ? [Number(rgb[1]),Number(rgb[2]),Number(rgb[3])] : [255,255,255];
+    };
+    const rgbaColor = (color, alpha = .84) => { const [r,g,b] = parseRgb(color); return `rgba(${r},${g},${b},${alpha})`; };
+    const hoverTextColor = color => {
+      const alphaMatch = String(color).match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)/i), alpha = alphaMatch ? Number(alphaMatch[1]) : 1;
+      const rgb = parseRgb(color).map(channel => channel * alpha + 255 * (1-alpha));
+      const linear = rgb.map(channel => { const value = channel/255; return value <= .04045 ? value/12.92 : ((value+.055)/1.055)**2.4; });
+      return .2126*linear[0]+.7152*linear[1]+.0722*linear[2] < .179 ? '#ffffff' : '#000000';
+    };
+    const hoverColorForValue = (value, scaleName, reverse) => {
+      const scale = extraColorScales[scaleName] || builtInColorScales[scaleName];
+      if (!scale) return 'rgba(174,185,199,.84)';
+      let position = Math.max(0,Math.min(1,Number(value)||0)); if (reverse) position = 1-position;
+      let i = 1; while (i < scale.length-1 && position > scale[i][0]) i++;
+      const [lo,c1] = scale[i-1], [hi,c2] = scale[i], a = parseRgb(c1), b = parseRgb(c2), fraction = (position-lo)/(hi-lo||1);
+      return rgbaColor(`rgb(${a.map((channel,index)=>Math.round(channel+(b[index]-channel)*fraction)).join(',')})`);
     };
     let dataset = null;
     let selectedSpecies = null;
@@ -303,6 +331,7 @@
       const markerSizing = sizeByIndex
         ? {size: rows.map((record) => Math.max(0, Number(record.pathogenic_index) || 0)), sizemode: 'area', sizeref: 1 / (24 * 24), sizemin: 4}
         : {size: 8};
+      let hoverColors = null;
       const trace = {
         type: 'scattergl', mode: 'markers',
         x: rows.map((record) => record.x), y: rows.map((record) => record.y),
@@ -315,12 +344,15 @@
       if (selection.kind === 'feature' && (layer === 'missing' || layer === 'zero')) {
         trace.marker.color = '#aeb9c7';
         trace.marker.opacity = 0.16;
+        hoverColors = 'rgba(174,185,199,.16)';
         trace.name = layer === 'zero' ? '0% yes' : 'Not scored';
       } else if (selection.kind === 'feature') {
         trace.marker.color = rows.map((record) => record.features[selection.index]);
         const colorMap = byId('colorMap').value;
-        trace.marker.colorscale = extraColorScales[colorMap] || colorMap;
-        trace.marker.reversescale = byId('reverseColorMap').checked;
+        const reverseColorMap = byId('reverseColorMap').checked;
+        trace.marker.colorscale = extraColorScales[colorMap] || builtInColorScales[colorMap] || colorMap;
+        hoverColors = rows.map((record) => hoverColorForValue(record.features[selection.index], colorMap, reverseColorMap));
+        trace.marker.reversescale = reverseColorMap;
         trace.marker.cmin = 0;
         trace.marker.cmax = 1;
         trace.marker.showscale = true;
@@ -330,6 +362,7 @@
         const categories = [...new Set(values)].sort((a,b) => a.localeCompare(b));
         const colors = new Map(categories.map((category, index) => [category, palette[index % palette.length]]));
         trace.marker.color = values.map((category) => colors.get(category));
+        hoverColors = values.map((category) => rgbaColor(colors.get(category)));
         trace.marker.opacity = 0.88;
         if (categories.length <= 12) {
           trace.showlegend = true;
@@ -338,6 +371,10 @@
           trace.legendgroup = selection.key;
           trace._categoryRows = categories.map((category) => ({category, color: colors.get(category)}));
         }
+      }
+      if (hoverColors) {
+        const textColors = Array.isArray(hoverColors) ? hoverColors.map(hoverTextColor) : hoverTextColor(hoverColors);
+        trace.hoverlabel = {align:'left',namelength:0,bgcolor:hoverColors,bordercolor:hoverColors,font:{color:textColors}};
       }
       return trace;
     }
@@ -412,10 +449,12 @@
           line:{color:byId('blackPointEdges').checked?'#111827':'#ffffff',width:.45},opacity:mode==='gray'?.16:.84,
         };
         if(byId('sizeByPathogenicIndex').checked){marker.sizemode='area';marker.sizeref=1/(24*24);marker.sizemin=4;}
-        if(mode==='gray') marker.color='#aeb9c7';
-        else if(numericColor){marker.color=selectedIndices.map(i=>Number(visible[i].color));marker.colorscale=extraColorScales[byId('colorMap').value]||byId('colorMap').value;marker.reversescale=byId('reverseColorMap').checked;marker.cmin=0;marker.cmax=1;marker.showscale=true;marker.colorbar={x:1.07,thickness:13,len:.72,tickformat:'.0%'};}
-        else marker.color=selectedIndices.map(i=>palette[categories.indexOf(String(visible[i].color||'Unclassified'))%palette.length]);
-        return {type:'scattergl',mode:'markers',x:selectedIndices.map(i=>x.values[i]),y:selectedIndices.map(i=>y.values[i]),text:selectedIndices.map(i=>visible[i].record.species),customdata:selectedIndices.map(i=>[visible[i].record.species,formatHoverValue(visible[i].x),formatHoverValue(visible[i].y),formatHoverValue(visible[i].color)]),hovertemplate:'<b>%{customdata[0]}</b><br>'+xSelection.label+': %{customdata[1]}<br>'+ySelection.label+': %{customdata[2]}<br>'+colorSelection.label+': %{customdata[3]}<extra></extra>',marker,showlegend:false};
+        let hoverColors;
+        if(mode==='gray'){marker.color='#aeb9c7';hoverColors='rgba(174,185,199,.16)';}
+        else if(numericColor){const colorMap=byId('colorMap').value,reverse=byId('reverseColorMap').checked;marker.color=selectedIndices.map(i=>Number(visible[i].color));marker.colorscale=extraColorScales[colorMap]||builtInColorScales[colorMap]||colorMap;marker.reversescale=reverse;hoverColors=selectedIndices.map(i=>hoverColorForValue(visible[i].color,colorMap,reverse));marker.cmin=0;marker.cmax=1;marker.showscale=true;marker.colorbar={x:1.07,thickness:13,len:.72,tickformat:'.0%'};}
+        else {marker.color=selectedIndices.map(i=>palette[categories.indexOf(String(visible[i].color||'Unclassified'))%palette.length]);hoverColors=selectedIndices.map(i=>rgbaColor(palette[categories.indexOf(String(visible[i].color||'Unclassified'))%palette.length]));}
+        const hoverTextColors=Array.isArray(hoverColors)?hoverColors.map(hoverTextColor):hoverTextColor(hoverColors);
+        return {type:'scattergl',mode:'markers',x:selectedIndices.map(i=>x.values[i]),y:selectedIndices.map(i=>y.values[i]),text:selectedIndices.map(i=>visible[i].record.species),customdata:selectedIndices.map(i=>[visible[i].record.species,formatHoverValue(visible[i].x),formatHoverValue(visible[i].y),formatHoverValue(visible[i].color)]),hovertemplate:'<b>%{customdata[0]}</b><br>'+xSelection.label+': %{customdata[1]}<br>'+ySelection.label+': %{customdata[2]}<br>'+colorSelection.label+': %{customdata[3]}<extra></extra>',hoverlabel:{align:'left',namelength:0,bgcolor:hoverColors,bordercolor:hoverColors,font:{color:hoverTextColors}},marker,showlegend:false};
       };
       if(numericColor){if(colored.length)traces.push(makeTrace(colored,'numeric'));}
       else if(colored.length){for(const category of categories){const subset=colored.filter(i=>String(visible[i].color||'Unclassified')===category);const trace=makeTrace(subset,'category');trace.name=category;trace.showlegend=categories.length<=12;traces.push(trace);}}
