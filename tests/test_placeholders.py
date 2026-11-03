@@ -4,4 +4,4 @@
 def test_scaffold_imports() -> None:
     import pathogen_atlas_v2
 
-    assert pathogen_atlas_v2.__version__ == "2.0.6"
+    assert pathogen_atlas_v2.__version__ == "2.0.7"

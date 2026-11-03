@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore human pathogen evidence, domain-expert features, taxonomy, and PubMed records by species.">
-  <title>Pathogen Atlas V2 v2.0.6 · Evidence Explorer</title>
+  <title>Pathogen Atlas V2 v2.0.7 · Evidence Explorer</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     :root{color-scheme:light;--ink:#132a43;--muted:#63758b;--line:#dce5ed;--canvas:#f1f5f6;--surface:#fff;--teal:#14756e;--teal-dark:#0f625d;--mint:#eaf5f2;--shadow:0 8px 28px rgba(24,49,69,.055)}
@@ -27,6 +27,9 @@
     .csv-download{display:inline-grid;place-items:center;flex:0 0 34px;width:34px;height:34px;padding:0;border:1px solid #d3dfe4;border-radius:8px;background:#fff;color:#33586a;font-size:15px;cursor:pointer;transition:background .15s,border-color .15s,color .15s}.csv-download:hover{background:#eef6f4;border-color:#b9d4ce;color:var(--teal-dark)}.csv-download:focus-visible{outline:3px solid rgba(20,117,110,.18);outline-offset:2px}
     .control-actions{display:flex;align-items:center;gap:9px}.appearance-menu{position:relative;z-index:20;flex:0 0 auto}.appearance-menu>summary{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 11px;border:1px solid #d3dfe4;border-radius:8px;background:#fff;color:#33586a;font:inherit;font-size:11px;font-weight:650;white-space:nowrap;cursor:pointer;list-style:none;transition:background .15s,border-color .15s}.appearance-menu>summary::-webkit-details-marker{display:none}.appearance-menu>summary:hover,.appearance-menu[open]>summary{background:#eef6f4;border-color:#b9d4ce}.appearance-menu>summary:focus-visible{outline:3px solid rgba(20,117,110,.18);outline-offset:2px}.appearance-menu>summary .bi,.button .bi{font-size:14px;flex:0 0 auto}.appearance-popover{position:absolute;top:calc(100% + 8px);right:0;width:min(300px,calc(100vw - 42px));padding:13px;border:1px solid #d7e2e6;border-radius:10px;background:white;box-shadow:0 10px 28px rgba(24,49,69,.18);z-index:30}.appearance-popover .field{margin-bottom:24px}.appearance-popover .field select{height:36px}.appearance-popover .size-toggle{font-size:10px}.appearance-popover .size-toggle+.size-toggle{margin-left:18px}.appearance-popover .size-toggle span{white-space:nowrap}.button{display:inline-flex;align-items:center;justify-content:center;gap:7px}
     .pmid-box{display:block;min-width:0;margin:17px 0 0;padding:0;border:0;border-radius:0;background:transparent}.pmid-content{padding:4px 2px 0}.pmid-content>.paper-sort{display:block;margin:0 0 9px auto}
+    .coverage-header{display:block;padding:18px 22px 16px}.coverage-heading{display:flex;align-items:center;justify-content:space-between;gap:18px}.coverage-heading-title h2{margin:0;font-size:20px;letter-spacing:-.035em}.coverage-kicker{display:block;margin-bottom:4px;color:#63758b;font-size:9px;font-weight:760;letter-spacing:.12em;text-transform:uppercase}.coverage-download{height:36px;flex:0 0 auto;font-size:11px}.coverage-download .bi{font-size:14px}.coverage-summary{grid-template-columns:1.1fr repeat(4,minmax(0,1fr));gap:0;max-width:none;margin:16px 0 0}.coverage-summary .metric{min-height:66px;align-content:center;padding:10px 16px;border-left:1px solid var(--line)}.coverage-summary .metric-primary{border:1px solid #cfe4dd;border-radius:10px;background:var(--mint)}.coverage-summary .metric-value{font-size:20px}.coverage-summary .metric-primary .metric-value{color:var(--teal-dark)}.coverage-summary .metric-label{font-size:10px;line-height:1.35}.coverage-summary .metric-label span{display:inline;margin:0;color:inherit;font-size:inherit}
+    @media(max-width:760px){.coverage-header{padding:17px 16px 14px}.coverage-heading{align-items:flex-start}.coverage-heading-title h2{font-size:17px}.coverage-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:13px}.coverage-summary .metric{min-height:62px;border:1px solid #e5ecee;border-radius:9px;padding:9px 11px}.coverage-summary .metric-primary{border-color:#cfe4dd;background:var(--mint)}.coverage-summary .metric-value{font-size:17px}.coverage-summary .metric-label{font-size:9px}}
+    @media(max-width:520px){.coverage-heading{flex-wrap:wrap}.coverage-download{height:32px}.coverage-heading-title h2{font-size:15px}.coverage-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.coverage-summary .metric{padding:8px}.coverage-summary .metric-label{font-size:8px}}
     .secondary-controls{column-gap:18px;row-gap:14px;align-items:start;margin-bottom:14px}.secondary-controls>div label{margin-bottom:8px}.secondary-zero-toggle{min-height:20px;margin:2px auto 12px;gap:9px;line-height:1.45}.secondary-zero-toggle input{flex:0 0 14px}.secondary-hint{margin:0 0 14px;line-height:1.5;text-align:center}
     .secondary-controls label.secondary-zero-toggle{display:flex;gap:12px;padding:4px 8px}.secondary-controls label.secondary-zero-toggle input{margin-right:2px}
     @media(max-width:600px){.secondary-panel{padding:12px 14px 0}.secondary-controls{grid-template-columns:1fr;gap:12px}.secondary-zero-toggle{grid-column:1;margin:2px auto 4px}}
@@ -35,21 +38,23 @@
 <body>
   <main class="shell">
     <header class="page-header">
-      <div class="page-title-row"><h1 class="page-title"><img class="title-logo" src="./assets/pathogen-atlas-logo.png?v=2.0.6" alt=""><span>Pathogen Atlas</span><span class="title-version">v2.0.6</span></h1><div class="badge" id="dataBadge">Loading species data…</div></div>
+      <div class="page-title-row"><h1 class="page-title"><img class="title-logo" src="./assets/pathogen-atlas-logo.png?v=2.0.7" alt=""><span>Pathogen Atlas</span><span class="title-version">v2.0.7</span></h1><div class="badge" id="dataBadge">Loading species data…</div></div>
       <p class="intro">Explore how documented pathogen features vary across species and taxonomic groups. Color the map by a feature or taxonomic rank, then open a species profile to review its synonyms, feature scores, and PubMed abstracts supporting its association with human disease.</p>
     </header>
     <section class="workspace">
       <section class="card chart-card" aria-label="Interactive species map">
-        <div class="panel-heading">
-          <div class="panel-heading-title"><h2>Species feature space</h2><p>One fitted IMSTE coordinate per species</p></div>
-          <div class="panel-metrics" aria-label="Dataset summary">
-            <div class="metric"><strong class="metric-value" id="featureCount">—</strong><span class="metric-label">features</span></div>
-            <div class="metric"><strong class="metric-value" id="speciesCount">—</strong><span class="metric-label">species with expert profiles</span></div>
-            <div class="metric"><strong class="metric-value" id="pmidCount">—</strong><span class="metric-label">accepted species–PMID records</span></div>
-            <div class="metric" title="Sum of records returned by the per-species PubMed searches; one PMID may occur in searches for multiple species."><strong class="metric-value" id="searchRecordCount">—</strong><span class="metric-label">PubMed search records</span></div>
+        <div class="panel-heading coverage-header">
+          <div class="coverage-heading">
+            <div class="coverage-heading-title"><span class="coverage-kicker">Pathogen coverage</span><h2>Human · Homo sapiens · Bacteria</h2></div>
+            <button class="button coverage-download" id="downloadPathogensCsv" type="button" aria-label="Download CSV of all pathogens, taxonomy, feature counts, and Pathogenic Interest Index calculations" title="Download all pathogens, their taxonomy, all 73 feature yes counts, and Pathogenic Interest Index calculation inputs as CSV"><i class="bi bi-download" aria-hidden="true"></i><span>Download CSV</span></button>
           </div>
-          <div class="plot-count" id="visibleSpeciesCount">Species map</div>
-          <button class="csv-download" id="downloadPathogensCsv" type="button" aria-label="Download CSV of all pathogens, taxonomy, feature counts, and Pathogenic Interest Index calculations" title="Download all pathogens, their taxonomy, all 73 feature yes counts, and Pathogenic Interest Index calculation inputs as CSV"><i class="bi bi-download" aria-hidden="true"></i></button>
+          <div class="panel-metrics coverage-summary" aria-label="Dataset summary">
+            <div class="metric metric-primary"><strong class="metric-value" id="visibleSpeciesCount">—</strong><span class="metric-label">of <span id="speciesCount">—</span> pathogen profiles</span></div>
+            <div class="metric"><strong class="metric-value" id="featureCount">—</strong><span class="metric-label">features</span></div>
+            <div class="metric"><strong class="metric-value" id="pmidCount">—</strong><span class="metric-label">accepted species–PMID records</span></div>
+            <div class="metric"><strong class="metric-value" id="estimatedPublicationCount">—</strong><span class="metric-label">estimated pathogen-supporting publications</span></div>
+            <div class="metric" title="Sum of records returned by the per-species PubMed searches; one PMID may occur in searches for multiple species."><strong class="metric-value" id="searchRecordCount">—</strong><span class="metric-label">counted pathogen-wide records</span></div>
+          </div>
         </div>
         <div class="explorer-controls">
           <div class="control-grid">
@@ -249,6 +254,7 @@
       });
       const maxLogVolume = Math.max(0, ...rows.map(row => row.estimated == null ? 0 : Math.log1p(row.estimated)));
       const maxLogFraction = Math.max(0, ...rows.map(row => row.fraction == null ? 0 : Math.log1p(row.fraction)));
+      byId('estimatedPublicationCount').textContent = formatNumber(Math.round(rows.reduce((total, row) => total + (row.estimated || 0), 0)));
       for (const row of rows) {
         row.record.profile_metrics = {
           publication_volume_score: row.estimated == null || maxLogVolume === 0 ? 0 : Math.log1p(row.estimated) / maxLogVolume,
@@ -431,9 +437,7 @@
         : {size: 8};
       byId('colorMap').disabled = selection.kind !== 'feature';
       byId('reverseColorMap').disabled = selection.kind !== 'feature';
-      byId('visibleSpeciesCount').textContent = records.length === dataset.species.length
-        ? `${formatNumber(records.length)} species`
-        : `${formatNumber(records.length)} / ${formatNumber(dataset.species.length)} species`;
+      byId('visibleSpeciesCount').textContent = formatNumber(records.length);
       const traces = selection.kind === 'feature'
         ? [makeTrace(records, selection), makeTrace(records, selection, 'zero'), makeTrace(records, selection, 'missing')]
         : [makeTrace(records, selection)];
