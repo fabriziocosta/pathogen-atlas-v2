@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore human pathogen evidence, domain-expert features, taxonomy, and PubMed records by species.">
-  <title>Pathogen Atlas V2 v2.0.2 · Evidence Explorer</title>
+  <title>Pathogen Atlas V2 v2.0.3 · Evidence Explorer</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     :root{color-scheme:light;--ink:#132a43;--muted:#63758b;--line:#dce5ed;--canvas:#f1f5f6;--surface:#fff;--teal:#14756e;--teal-dark:#0f625d;--mint:#eaf5f2;--shadow:0 8px 28px rgba(24,49,69,.055)}
@@ -27,12 +27,15 @@
     .csv-download{display:inline-grid;place-items:center;flex:0 0 34px;width:34px;height:34px;padding:0;border:1px solid #d3dfe4;border-radius:8px;background:#fff;color:#33586a;font-size:15px;cursor:pointer;transition:background .15s,border-color .15s,color .15s}.csv-download:hover{background:#eef6f4;border-color:#b9d4ce;color:var(--teal-dark)}.csv-download:focus-visible{outline:3px solid rgba(20,117,110,.18);outline-offset:2px}
     .control-actions{display:flex;align-items:center;gap:9px}.appearance-menu{position:relative;z-index:20;flex:0 0 auto}.appearance-menu>summary{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 11px;border:1px solid #d3dfe4;border-radius:8px;background:#fff;color:#33586a;font:inherit;font-size:11px;font-weight:650;white-space:nowrap;cursor:pointer;list-style:none;transition:background .15s,border-color .15s}.appearance-menu>summary::-webkit-details-marker{display:none}.appearance-menu>summary:hover,.appearance-menu[open]>summary{background:#eef6f4;border-color:#b9d4ce}.appearance-menu>summary:focus-visible{outline:3px solid rgba(20,117,110,.18);outline-offset:2px}.appearance-menu>summary .bi,.button .bi{font-size:14px;flex:0 0 auto}.appearance-popover{position:absolute;top:calc(100% + 8px);right:0;width:min(300px,calc(100vw - 42px));padding:13px;border:1px solid #d7e2e6;border-radius:10px;background:white;box-shadow:0 10px 28px rgba(24,49,69,.18);z-index:30}.appearance-popover .field{margin-bottom:24px}.appearance-popover .field select{height:36px}.appearance-popover .size-toggle{font-size:10px}.appearance-popover .size-toggle+.size-toggle{margin-left:18px}.appearance-popover .size-toggle span{white-space:nowrap}.button{display:inline-flex;align-items:center;justify-content:center;gap:7px}
     .pmid-box{display:block;min-width:0;margin:17px 0 0;padding:0;border:0;border-radius:0;background:transparent}.pmid-content{padding:4px 2px 0}.pmid-content>.paper-sort{display:block;margin:0 0 9px auto}
+    .secondary-controls{column-gap:18px;row-gap:14px;align-items:start;margin-bottom:14px}.secondary-controls>div label{margin-bottom:8px}.secondary-zero-toggle{min-height:20px;margin:2px auto 12px;gap:9px;line-height:1.45}.secondary-zero-toggle input{flex:0 0 14px}.secondary-hint{margin:0 0 14px;line-height:1.5;text-align:left}
+    .secondary-controls label.secondary-zero-toggle{display:flex;gap:12px;padding:4px 8px}.secondary-controls label.secondary-zero-toggle input{margin-right:2px}
+    @media(max-width:600px){.secondary-panel{padding:12px 14px 0}.secondary-controls{grid-template-columns:1fr;gap:12px}.secondary-zero-toggle{grid-column:1;margin:2px auto 4px}}
   </style>
 </head>
 <body>
   <main class="shell">
     <header class="page-header">
-      <div class="page-title-row"><h1 class="page-title"><img class="title-logo" src="./assets/pathogen-atlas-logo.png?v=2.0.2" alt=""><span>Pathogen Atlas</span><span class="title-version">v2.0.2</span></h1><div class="badge" id="dataBadge">Loading species data…</div></div>
+      <div class="page-title-row"><h1 class="page-title"><img class="title-logo" src="./assets/pathogen-atlas-logo.png?v=2.0.3" alt=""><span>Pathogen Atlas</span><span class="title-version">v2.0.3</span></h1><div class="badge" id="dataBadge">Loading species data…</div></div>
       <p class="intro">Explore how documented pathogen features vary across species and taxonomic groups. Color the map by a feature or taxonomic rank, then open a species profile to review its synonyms, feature scores, and PubMed abstracts supporting its association with human disease.</p>
     </header>
     <section class="workspace">

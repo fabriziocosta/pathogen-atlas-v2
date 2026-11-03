@@ -1,7 +1,7 @@
 # Default runtime configuration for Pathogen Atlas V2.
 project:
   name: pathogen_atlas_v2
-  version: 2.0.2
+  version: 2.0.3
 
 paths:
   data_dir: data
