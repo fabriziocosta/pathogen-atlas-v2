@@ -44,7 +44,10 @@ Each selected species shows its V2 **Pathogenic Interest Index**. Enable
 return to uniform point sizes.
 The map opens with **Salmonella enterica** selected and colored by the
 Epidemiology feature, with reversed Inferno and Pathogenic Interest Index
-sizing enabled.
+sizing enabled. The feature explanation appears above the map. Expand the
+lower **+** control to compare any two feature or taxonomy values in a second
+2D plot; its colors follow the main map selection, and zero or unscored values
+can be shown in gray.
 To open a species profile directly, append `?species=` and the URL-encoded
 species name to the explorer URL, for example `?species=Escherichia%20coli`.
 If a requested name is not in the explorer dataset, the map shows a message
