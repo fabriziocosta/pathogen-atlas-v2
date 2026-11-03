@@ -4,6 +4,9 @@
 
 # Pathogen Atlas
 
+Current release: **v2.0.1**. Pathogen Atlas V2 follows semantic versioning;
+see [CHANGELOG.md](CHANGELOG.md) for release notes.
+
 The Pathogen Atlas is an evidence map of microorganisms reported in connection
 with human disease. It brings together literature on named species and
 organizes that evidence alongside expert-defined characteristics, so patterns
