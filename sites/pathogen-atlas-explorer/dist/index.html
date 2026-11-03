@@ -237,6 +237,27 @@
       select.value = data.features.some((feature) => feature.id === 'epidemiology') ? 'feature:epidemiology' : 'taxonomy:phylum';
     }
 
+    function addProfileMetrics(records) {
+      const rows = records.map(record => {
+        const positive = Number(record.n_causation || 0);
+        const sampled = Number(record.n_sampled || 0);
+        const organismRecords = Number(record.n_articles || 0);
+        const fraction = sampled > 0 ? positive / sampled : null;
+        const estimated = fraction != null && organismRecords > 0 ? fraction * organismRecords : null;
+        return {record, positive, sampled, organismRecords, fraction, estimated};
+      });
+      const maxLogVolume = Math.max(0, ...rows.map(row => row.estimated == null ? 0 : Math.log1p(row.estimated)));
+      const maxLogFraction = Math.max(0, ...rows.map(row => row.fraction == null ? 0 : Math.log1p(row.fraction)));
+      for (const row of rows) {
+        row.record.profile_metrics = {
+          publication_volume_score: row.estimated == null || maxLogVolume === 0 ? 0 : Math.log1p(row.estimated) / maxLogVolume,
+          pathogenicity_fraction_score: row.fraction == null || maxLogFraction === 0 ? 0 : Math.log1p(row.fraction) / maxLogFraction,
+          pathogenicity_fraction: row.fraction,
+          estimated_pathogen_publications: row.estimated,
+        };
+      }
+    }
+
     function filteredRecords() {
       const query = byId('search').value.trim().toLocaleLowerCase();
       const minimumPmids = Math.max(0, Math.floor(Number(byId('minPathogenPmids').value) || 0));
@@ -525,12 +546,23 @@
 
       const stats = document.createElement('div');
       stats.className = 'stats';
-      const indexValue = record.pathogenic_index == null ? '—' : Number(record.pathogenic_index).toFixed(3);
-      for (const [value, label, isIndex] of [[indexValue, 'Pathogenic Interest Index', true], [record.n_pmids, 'Pathogen supporting PMIDs', false], [record.n_articles, 'PubMed search records', false], [record.n_sampled, 'Abstracts fetched', false]]) {
+      const profileMetrics = record.profile_metrics || {};
+      const fractionPercent = profileMetrics.pathogenicity_fraction == null ? '—' : `${(profileMetrics.pathogenicity_fraction * 100).toFixed(1)}%`;
+      const estimatedPublications = profileMetrics.estimated_pathogen_publications == null ? '—' : formatNumber(Math.round(profileMetrics.estimated_pathogen_publications));
+      const positiveSample = record.n_causation == null || record.n_sampled == null ? '—' : `${formatNumber(record.n_causation)}/${formatNumber(record.n_sampled)}`;
+      const profileStats = [
+        [profileMetrics.publication_volume_score == null ? '—' : Number(profileMetrics.publication_volume_score).toFixed(3), 'Publication volume score · 0–1', true],
+        [profileMetrics.pathogenicity_fraction_score == null ? '—' : Number(profileMetrics.pathogenicity_fraction_score).toFixed(3), 'Pathogenicity fraction score · 0–1', false],
+        [positiveSample, 'Positive sampled records', false],
+        [fractionPercent, 'Estimated pathogenicity fraction', false],
+        [estimatedPublications, 'Estimated pathogen-supporting publications', false],
+        [record.n_articles == null ? '—' : formatNumber(record.n_articles), 'Organism PubMed records', false],
+      ];
+      for (const [value, label, highlight] of profileStats) {
         const stat = document.createElement('div');
-        stat.className = isIndex ? 'stat stat-index' : 'stat';
+        stat.className = highlight ? 'stat stat-index' : 'stat';
         const strong = document.createElement('strong');
-        strong.textContent = isIndex ? value : formatNumber(value);
+        strong.textContent = value;
         const span = document.createElement('span');
         span.textContent = label;
         stat.append(strong, span);
@@ -539,7 +571,7 @@
       details.append(stats);
       const indexMethod = document.createElement('p');
       indexMethod.className = 'index-method';
-      indexMethod.textContent = 'Pathogenic Interest Index = log(Pathogen supporting PMIDs ÷ Abstracts fetched × PubMed search records), normalized by the highest species score. Zero if there are no pathogen supporting PMIDs or no abstracts fetched.';
+      indexMethod.textContent = 'Estimated pathogen-supporting publications = positive sampled records ÷ abstracts fetched × organism PubMed records. The pathogenicity fraction is that estimate divided by organism PubMed records. Both scores use log1p normalization against the highest species value in this v2 dataset.';
       details.append(indexMethod);
 
       const taxonomySynonymGrid = document.createElement('div');
@@ -856,6 +888,7 @@
         console.error('Could not load Pathogen Atlas explorer data', error);
         return;
       }
+      addProfileMetrics(dataset.species);
       byId('dataBadge').textContent = `Data built ${new Date(dataset.generated_at).toLocaleDateString()}`;
       byId('speciesCount').textContent = formatNumber(dataset.counts.species);
       byId('pmidCount').textContent = formatNumber(dataset.counts.species_pmid_records);

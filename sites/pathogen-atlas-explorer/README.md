@@ -39,9 +39,12 @@ selected feature** section lists the accepted pathogen-evidence PMIDs that were
 answered yes for the selected feature, using the same confidence and sorting
 controls as the pathogen-supporting PMID list. Features without scored answers
 are marked as unscored.
-Each selected species shows its V2 **Pathogenic Interest Index**. Enable
-**Size by Pathogenic Interest Index** to scale point area by its normalized score; clear it to
-return to uniform point sizes.
+Each selected species profile shows publication volume and pathogenicity
+fraction scores, the positive sample count, the estimated pathogenicity
+fraction, estimated pathogen-supporting publications, and organism PubMed
+records. Both profile scores are log1p-normalized against the maximum value in
+the v2 dataset. Enable **Size by Pathogenic Interest Index** to scale map point
+area by the saved V2 index; clear it to return to uniform point sizes.
 The map opens with **Salmonella enterica** selected and colored by the
 Epidemiology feature, with reversed Inferno and Pathogenic Interest Index
 sizing enabled. The feature explanation appears above the map. Expand the
