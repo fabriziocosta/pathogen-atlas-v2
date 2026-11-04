@@ -244,6 +244,19 @@
     function addColorOptions(data) {
       const select = byId('colorBy');
       select.replaceChildren();
+      const scoreGroup = document.createElement('optgroup');
+      scoreGroup.label = 'Pathogenicity estimates';
+      for (const [key, label] of [
+        ['pathogenicity_fraction', 'Estimated pathogenicity fraction'],
+        ['publication_volume_score', 'Publication volume score · 0–1'],
+        ['pathogenicity_fraction_score', 'Pathogenicity fraction score · 0–1'],
+      ]) {
+        const option = document.createElement('option');
+        option.value = `score:${key}`;
+        option.textContent = label;
+        scoreGroup.append(option);
+      }
+      select.append(scoreGroup);
       const taxonomyGroup = document.createElement('optgroup');
       taxonomyGroup.label = 'Taxonomy';
       for (const rank of data.taxonomy_levels) {
@@ -311,13 +324,22 @@
         const index = dataset.features.findIndex((feature) => feature.id === key);
         return {kind, key, index, label: dataset.features[index]?.label || key, definition: dataset.features[index]?.definition || ''};
       }
+      if (kind === 'score') {
+        const labels = {
+          pathogenicity_fraction: 'Estimated pathogenicity fraction',
+          publication_volume_score: 'Publication volume score · 0–1',
+          pathogenicity_fraction_score: 'Pathogenicity fraction score · 0–1',
+        };
+        return {kind, key, label: labels[key] || key};
+      }
       return {kind, key, label: key[0].toUpperCase() + key.slice(1)};
     }
 
     function customData(record, selection) {
       const taxonomy = dataset.taxonomy_levels.map((rank) => record.taxonomy?.[rank] || 'Unclassified');
-      const value = selection.kind === 'feature' ? record.features[selection.index] : record.taxonomy?.[selection.key];
-      return [escapeHtml(record.species), ...taxonomy.map(escapeHtml), record.n_articles, record.n_pmids, record.pathogenic_index, escapeHtml(selection.label), selection.kind === 'feature' ? formatFraction(value) : escapeHtml(value || 'Unclassified')];
+      const value = selection.kind === 'feature' ? record.features[selection.index] : selection.kind === 'score' ? record.profile_metrics?.[selection.key] : record.taxonomy?.[selection.key];
+      const formattedValue = selection.kind === 'feature' ? formatFraction(value) : selection.kind === 'score' ? (value == null ? 'Not scored' : selection.key === 'pathogenicity_fraction' ? `${(Number(value) * 100).toFixed(1)}%` : Number(value).toFixed(3)) : escapeHtml(value || 'Unclassified');
+      return [escapeHtml(record.species), ...taxonomy.map(escapeHtml), record.n_articles, record.n_pmids, record.pathogenic_index, escapeHtml(selection.label), formattedValue];
     }
 
     function makeTrace(records, selection, layer = 'scored') {
@@ -359,6 +381,18 @@
         trace.marker.cmax = 1;
         trace.marker.showscale = true;
         trace.marker.colorbar = {x: 1.07, thickness: 13, len: 0.72, tickformat: '.0%'};
+      } else if (selection.kind === 'score') {
+        const values = rows.map((record) => record.profile_metrics?.[selection.key] ?? 0);
+        const colorMap = byId('colorMap').value;
+        const reverseColorMap = byId('reverseColorMap').checked;
+        trace.marker.color = values;
+        trace.marker.colorscale = extraColorScales[colorMap] || builtInColorScales[colorMap] || colorMap;
+        trace.marker.reversescale = reverseColorMap;
+        hoverColors = values.map((value) => hoverColorForValue(value, colorMap, reverseColorMap));
+        trace.marker.cmin = 0;
+        trace.marker.cmax = 1;
+        trace.marker.showscale = true;
+        trace.marker.colorbar = {x: 1.07, thickness: 13, len: 0.72, tickformat: '.0%'};
       } else {
         const values = rows.map((record) => record.taxonomy?.[selection.key] || 'Unclassified');
         const categories = [...new Set(values)].sort((a,b) => a.localeCompare(b));
@@ -382,7 +416,7 @@
     }
 
     function traitValue(record, selection) {
-      return selection.kind === 'feature' ? record.features?.[selection.index] : record.taxonomy?.[selection.key];
+      return selection.kind === 'feature' ? record.features?.[selection.index] : selection.kind === 'score' ? record.profile_metrics?.[selection.key] : record.taxonomy?.[selection.key];
     }
 
     function traitHasValue(value) {
@@ -422,7 +456,8 @@
         const [kind, key] = byId(id).value.split(':', 2);
         if (!kind || !key) return null;
         const index = kind === 'feature' ? dataset.features.findIndex(feature => feature.id === key) : -1;
-        return {kind, key, index, label: kind === 'feature' ? dataset.features[index]?.label || key : key[0].toUpperCase() + key.slice(1)};
+        const scoreLabels = {pathogenicity_fraction: 'Estimated pathogenicity fraction', publication_volume_score: 'Publication volume score · 0–1', pathogenicity_fraction_score: 'Pathogenicity fraction score · 0–1'};
+        return {kind, key, index, label: kind === 'feature' ? dataset.features[index]?.label || key : kind === 'score' ? scoreLabels[key] || key : key[0].toUpperCase() + key.slice(1)};
       };
       const xSelection = parseSelection('secondary-x-trait'), ySelection = parseSelection('secondary-y-trait');
       if (!xSelection || !ySelection) { plot.innerHTML = '<div class="secondary-empty">Select traits for both axes to display the comparison.</div>'; return; }
@@ -440,7 +475,7 @@
       };
       const x=encodeAxis(visible.map(row=>row.x)), y=encodeAxis(visible.map(row=>row.y));
       const formatHoverValue=value=>value==null?'Not scored':Number.isFinite(Number(value))?Number(value).toFixed(3):String(value);
-      const colorValues=visible.map(row=>row.color), numericColor=colorSelection.kind==='feature';
+      const colorValues=visible.map(row=>row.color), numericColor=colorSelection.kind==='feature'||colorSelection.kind==='score';
       const categories=numericColor?[]:[...new Set(colorValues.map(value=>String(value||'Unclassified')))].sort((a,b)=>a.localeCompare(b));
       const palette=window.pathogenAtlasPalette || ['#2166ac','#e08214','#1b9e77','#7570b3','#d95f02','#66a61e','#e7298a','#1f9e89','#a6761d','#386cb0','#f0027f','#7fc97f','#beaed4','#fdc086','#ffff99','#bf5b17','#80b1d3','#fb8072','#8dd3c7','#bebada'];
       const traces=[];
@@ -471,13 +506,14 @@
     function renderMap() {
       const records = filteredRecords();
       const selection = currentColorSelection();
+      const numericSelection = selection.kind === 'feature' || selection.kind === 'score';
       const pointEdgeColor = byId('blackPointEdges').checked ? '#111827' : '#ffffff';
       const sizeByIndex = byId('sizeByPathogenicIndex').checked;
       const markerSizing = sizeByIndex
         ? {sizemode: 'area', sizeref: 1 / (24 * 24), sizemin: 4}
         : {size: 8};
-      byId('colorMap').disabled = selection.kind !== 'feature';
-      byId('reverseColorMap').disabled = selection.kind !== 'feature';
+      byId('colorMap').disabled = !numericSelection;
+      byId('reverseColorMap').disabled = !numericSelection;
       byId('visibleSpeciesCount').textContent = formatNumber(records.length);
       const traces = selection.kind === 'feature'
         ? [makeTrace(records, selection), makeTrace(records, selection, 'zero'), makeTrace(records, selection, 'missing')]
@@ -508,7 +544,7 @@
       }
       const crosshairShapes = hasSelectedPoint ? [{type:'line',xref:'x',yref:'paper',x0:selected.x,x1:selected.x,y0:0,y1:1,layer:'below',line:{color:'#8f9aa5',width:1,dash:'dot'}},{type:'line',xref:'paper',yref:'y',x0:0,x1:1,y0:selected.y,y1:selected.y,layer:'below',line:{color:'#8f9aa5',width:1,dash:'dot'}}] : [];
       const layout = {
-        margin: {l: 58, r: selection.kind === 'feature' ? 112 : 20, t: 22, b: 50},
+        margin: {l: 58, r: numericSelection ? 112 : 20, t: 22, b: 50},
         paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff',
         font: {family: 'Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif', color: '#29425f', size: 11},
         xaxis: {title: '', showticklabels: false, ticks: '', showline: false, zeroline: false, gridcolor: '#edf1f6'},
@@ -517,7 +553,7 @@
         showlegend: selection.kind === 'taxonomy' && (dataset.taxonomy_levels.includes(selection.key)) && [...new Set(records.map((record) => record.taxonomy?.[selection.key] || 'Unclassified'))].length <= 12,
         legend: {orientation: 'h', y: -0.15, x: 0, font: {size: 10}},
         annotations: records.length
-          ? (selection.kind === 'feature' ? [{text: selection.label, xref: 'paper', yref: 'paper', x: 1.035, y: 0.5, textangle: -90, showarrow: false, xanchor: 'center', yanchor: 'middle', font: {color: '#29425f', size: 11}}] : [])
+          ? (numericSelection ? [{text: selection.label, xref: 'paper', yref: 'paper', x: 1.035, y: 0.5, textangle: -90, showarrow: false, xanchor: 'center', yanchor: 'middle', font: {color: '#29425f', size: 11}}] : [])
           : [{text: 'No species match this search',xref:'paper',yref:'paper',x:.5,y:.5,showarrow:false,font:{color:'#5e718b',size:13}}],
       };
       const colorDescription = byId('color-description');
@@ -528,7 +564,9 @@
       colorNote.className = 'small';
       colorNote.textContent = selection.kind === 'feature'
         ? 'Color intensity shows the share of scored pathogen-evidence abstracts answered yes. Zero values and unscored points use translucent gray. Hover for taxonomy and evidence counts; click a point to see its PMID links.'
-        : 'Color marks the selected taxonomic rank. Hover for taxonomy and evidence counts; click a point to see its PMID links.';
+        : selection.kind === 'score'
+          ? 'Color intensity shows the selected pathogenicity estimate on a 0–1 scale. Hover for taxonomy and evidence counts; click a point to see its PMID links.'
+          : 'Color marks the selected taxonomic rank. Hover for taxonomy and evidence counts; click a point to see its PMID links.';
       colorDescription.append(colorTitle, document.createElement('br'), colorNote);
       Plotly.react(byId('map'), traces, layout, {
         responsive: true,

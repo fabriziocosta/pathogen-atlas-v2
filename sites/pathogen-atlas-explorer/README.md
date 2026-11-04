@@ -6,9 +6,10 @@ need a Python server or database after publication.
 
 The map has exactly one point per species, using that species’ saved Phase 5
 coordinates, and a domain-expert feature profile. Use
-**Color species by** to select any of the 73 feature prevalences or taxonomy
-ranks from domain through genus. Open **Color settings** to choose a continuous
-**Feature colormap** for numeric features, reverse it, or switch species-circle
+**Color species by** to select any of the 73 feature prevalences, the estimated
+pathogenicity fraction, either 0–1 pathogenicity score, or taxonomy ranks from
+domain through genus. Open **Color settings** to choose a continuous
+**Feature colormap** for numeric values, reverse it, or switch species-circle
 edges between white and black (black by default). The colormap and reverse
 controls are disabled for categorical taxonomy colors.
 When a feature is selected, the chart hint shows its definition from the
@@ -46,8 +47,8 @@ records. Both profile scores are log1p-normalized against the maximum value in
 the v2 dataset. Enable **Size by Pathogenic Interest Index** to scale map point
 area by the saved V2 index; clear it to return to uniform point sizes.
 The map opens with **Salmonella enterica** selected and colored by the
-Epidemiology feature, with reversed Inferno and Pathogenic Interest Index
-sizing enabled. The feature explanation appears above the map. Expand the
+Epidemiology feature, with reversed Yellow–Green–Blue and Pathogenic Interest
+Index sizing enabled. The feature explanation appears above the map. Expand the
 lower **+** control to compare any two feature or taxonomy values in a second
 2D plot; its colors follow the main map selection, and zero or unscored values
 can be shown in gray.

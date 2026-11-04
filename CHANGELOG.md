@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.19] - 2026-11-04
+
+- Add pathogenicity estimates and scores as numeric map color options, matching V4.
+
 ## [2.0.18] - 2026-11-04
 
 - Use the V4 default YlGnBu colormap, move selected-feature details into its supporting-abstracts section, and add the section divider.
