@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.22] - 2026-11-04
+
+- Show the selected pathogen with a red circle and dotted crosshair in the secondary 2D plot, darken feature-score columns to improve standard-deviation mark contrast, and close color settings on outside click.
+
 ## [2.0.21] - 2026-11-04
 
 - Center the feature-score legend in the profile panel.
