@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.11] - 2026-11-04
+
+- Align the V2 Explorer masthead, coverage summary, feature score panel, and selected-point crosshair with V4.
+
 Pathogen Atlas V2 follows semantic versioning. Release tags use the form
 `vMAJOR.MINOR.PATCH`.
 

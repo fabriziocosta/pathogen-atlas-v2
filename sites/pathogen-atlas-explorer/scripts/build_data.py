@@ -22,8 +22,11 @@ FEATURE_ANSWERS = RELEASE / "domain_expert_answers.parquet"
 WIKIPEDIA_LINKS = ROOT / "sites/pathogen-atlas-explorer/data/species_wikipedia_links.csv"
 GBIF_LINKS = ROOT / "sites/pathogen-atlas-explorer/data/species_gbif_links.csv"
 OUTPUT = ROOT / "sites/pathogen-atlas-explorer/dist/explorer-data.json"
-BRAND_LOGO = ROOT / "assets/pathogen-atlas-logo.png"
-BRAND_LOGO_OUTPUT = OUTPUT.parent / "assets/pathogen-atlas-logo.png"
+BRAND_ASSETS = (
+    (ROOT / "assets/pathogen-atlas-logo.png", OUTPUT.parent / "assets/pathogen-atlas-logo.png"),
+    (ROOT / "assets/pathogen-atlas-v4-globe.svg", OUTPUT.parent / "assets/pathogen-atlas-v4-globe.svg"),
+    (ROOT / "assets/pathogen-atlas-v4-bacterium.png", OUTPUT.parent / "assets/pathogen-atlas-v4-bacterium.png"),
+)
 EVIDENCE_DIR = ROOT / "sites/pathogen-atlas-explorer/dist/evidence"
 QUESTION_SET_PATH = ROOT / "configs/domain_expert_questions.yaml"
 TAXONOMY_LEVELS = ("domain", "kingdom", "phylum", "class", "order", "family", "genus")
@@ -332,7 +335,9 @@ def main() -> None:
         encoding="utf-8",
     )
     BRAND_LOGO_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(BRAND_LOGO, BRAND_LOGO_OUTPUT)
+    for source, destination in BRAND_ASSETS:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
     print(
         f"Wrote {OUTPUT.relative_to(ROOT)}: {payload['counts']['species']:,} species, "
         f"{payload['counts']['species_pmid_records']:,} species-PMID records, "

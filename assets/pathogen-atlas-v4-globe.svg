@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Pathogen Atlas</title>
+  <desc id="desc">A geometric atlas globe built from a perfect circle and latitude and longitude ellipses.</desc>
+  <defs>
+    <clipPath id="sphere"><circle cx="128" cy="128" r="111"/></clipPath>
+    <mask id="bacterium-clearance" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+      <rect width="256" height="256" fill="white"/>
+      <rect x="97" y="41" width="62" height="134" rx="31" fill="black"/>
+    </mask>
+  </defs>
+  <circle cx="128" cy="128" r="111" stroke="#132a43" stroke-width="9.3"/>
+  <g clip-path="url(#sphere)" mask="url(#bacterium-clearance)" stroke="#132a43" stroke-width="3.1">
+    <ellipse cx="128" cy="128" rx="58" ry="111"/>
+    <ellipse cx="128" cy="128" rx="111" ry="48"/>
+  </g>
+</svg>
