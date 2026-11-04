@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.12] - 2026-11-04
+
+- Add the publication reference to the masthead, increase masthead spacing, and add separators and ordering to the profile sections.
+
 ## [2.0.11] - 2026-11-04
 
 - Align the V2 Explorer masthead, coverage summary, feature score panel, and selected-point crosshair with V4.
