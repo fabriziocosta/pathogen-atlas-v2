@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.13] - 2026-11-04
+
+- Align the V2 author and publication block to the right edge of the masthead, matching V4.
+
 ## [2.0.12] - 2026-11-04
 
 - Add the publication reference to the masthead, increase masthead spacing, and add separators and ordering to the profile sections.
