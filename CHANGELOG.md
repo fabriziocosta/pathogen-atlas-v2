@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.14] - 2026-11-04
+
+- Strengthen only the bacterium silhouette outline in the Explorer masthead.
+
 ## [2.0.13] - 2026-11-04
 
 - Align the V2 author and publication block to the right edge of the masthead, matching V4.
