@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.18] - 2026-11-04
+
+- Use the V4 default YlGnBu colormap, move selected-feature details into its supporting-abstracts section, and add the section divider.
+
 ## [2.0.17] - 2026-11-04
 
 - Keep author link arrows inline with their names, matching V4.

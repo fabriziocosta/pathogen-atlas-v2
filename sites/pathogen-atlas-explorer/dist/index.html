@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore human pathogen evidence, domain-expert features, taxonomy, and PubMed records by species.">
-  <title>Pathogen Atlas V2 v2.0.15 · Evidence Explorer</title>
+  <title>Pathogen Atlas V2 v2.0.18 · Evidence Explorer</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     :root{color-scheme:light;--ink:#132a43;--muted:#63758b;--line:#dce5ed;--canvas:#f1f5f6;--surface:#fff;--teal:#14756e;--teal-dark:#0f625d;--mint:#eaf5f2;--shadow:0 8px 28px rgba(24,49,69,.055)}
@@ -26,7 +26,7 @@
     @font-face{font-family:"Bootstrap Icons";src:url("./assets/fonts/bootstrap-icons.woff2") format("woff2");font-display:swap}.bi{display:inline-block;font-family:"Bootstrap Icons"!important;font-style:normal;font-weight:normal!important;line-height:1;vertical-align:-.125em;-webkit-font-smoothing:antialiased}.bi-sliders::before{content:"\f56b"}.bi-house-door::before{content:"\f423"}.bi-download::before{content:"\f30a"}.species-links{display:flex;align-items:center;gap:12px;flex:0 0 auto}.species-reference-link{color:#176c68;font-size:9px;font-weight:700;text-decoration:none;white-space:nowrap}.species-reference-link:hover{text-decoration:underline}.species-reference-link:focus-visible{outline:2px solid #54968f;outline-offset:3px;border-radius:2px}.species-reference-link{display:inline-flex;align-items:center;gap:4px}.reference-icon{display:block;width:13px;height:13px;flex:0 0 13px;object-fit:contain}
     .csv-download{display:inline-grid;place-items:center;flex:0 0 34px;width:34px;height:34px;padding:0;border:1px solid #d3dfe4;border-radius:8px;background:#fff;color:#33586a;font-size:15px;cursor:pointer;transition:background .15s,border-color .15s,color .15s}.csv-download:hover{background:#eef6f4;border-color:#b9d4ce;color:var(--teal-dark)}.csv-download:focus-visible{outline:3px solid rgba(20,117,110,.18);outline-offset:2px}
     .control-actions{display:flex;align-items:center;gap:9px}.appearance-menu{position:relative;z-index:20;flex:0 0 auto}.appearance-menu>summary{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 11px;border:1px solid #d3dfe4;border-radius:8px;background:#fff;color:#33586a;font:inherit;font-size:11px;font-weight:650;white-space:nowrap;cursor:pointer;list-style:none;transition:background .15s,border-color .15s}.appearance-menu>summary::-webkit-details-marker{display:none}.appearance-menu>summary:hover,.appearance-menu[open]>summary{background:#eef6f4;border-color:#b9d4ce}.appearance-menu>summary:focus-visible{outline:3px solid rgba(20,117,110,.18);outline-offset:2px}.appearance-menu>summary .bi,.button .bi{font-size:14px;flex:0 0 auto}.appearance-popover{position:absolute;top:calc(100% + 8px);right:0;width:min(300px,calc(100vw - 42px));padding:13px;border:1px solid #d7e2e6;border-radius:10px;background:white;box-shadow:0 10px 28px rgba(24,49,69,.18);z-index:30}.appearance-popover .field{margin-bottom:24px}.appearance-popover .field select{height:36px}.appearance-popover .size-toggle{font-size:10px}.appearance-popover .size-toggle+.size-toggle{margin-left:18px}.appearance-popover .size-toggle span{white-space:nowrap}.button{display:inline-flex;align-items:center;justify-content:center;gap:7px}
-    .pmid-box{display:block;min-width:0;margin:17px 0 0;padding:0;border:0;border-radius:0;background:transparent}.pmid-content{padding:4px 2px 0}.pmid-content>.paper-sort{display:block;margin:0 0 9px auto}
+    .pmid-box{display:block;min-width:0;margin:17px 0 0;padding:0;border:0;border-radius:0;background:transparent}.pmid-content{padding:4px 2px 0}.pmid-content>.paper-sort{display:block;margin:0 0 9px auto}#feature-support{margin-top:0;border-top:1px solid #dce5ed}
     .coverage-header{display:block;padding:18px 22px 16px}.coverage-heading{display:flex;align-items:center;justify-content:space-between;gap:18px}.coverage-heading-title h2{margin:0;font-size:20px;letter-spacing:-.035em}.coverage-kicker{display:block;margin-bottom:4px;color:#63758b;font-size:9px;font-weight:760;letter-spacing:.12em;text-transform:uppercase}.coverage-download{height:36px;flex:0 0 auto;font-size:11px}.coverage-download .bi{font-size:14px}.coverage-summary{grid-template-columns:1.1fr repeat(5,minmax(0,1fr));gap:0;max-width:none;margin:16px 0 0}.coverage-summary .metric{min-height:66px;align-content:center;padding:10px 12px;border-left:1px solid var(--line)}.coverage-summary .metric:first-child,.coverage-summary .metric:nth-child(2){border-left:0}.coverage-summary .metric-taxonomy{grid-column:6;grid-row:1;text-align:right;padding-right:0}.coverage-summary .coverage-source{grid-column:1/-1;grid-row:2}.coverage-summary .metric-primary{border:1px solid #cfe4dd;border-radius:10px;background:var(--mint)}.coverage-summary .metric-value{font-size:20px}.coverage-summary .metric-primary .metric-value{color:var(--teal-dark)}.coverage-summary .metric-label{font-size:10px;line-height:1.35}.coverage-summary .metric-label span{display:inline;margin:0;color:inherit;font-size:inherit}
     @media(max-width:760px){.coverage-header{padding:17px 16px 14px}.coverage-heading{align-items:flex-start}.coverage-heading-title h2{font-size:17px}.coverage-summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:13px}.coverage-summary .metric-taxonomy{grid-column:3;grid-row:2;text-align:left}.coverage-source{grid-row:3}.coverage-summary .metric{min-height:62px;border:1px solid #e5ecee;border-radius:9px;padding:9px 11px}.coverage-summary .metric-primary{border-color:#cfe4dd;background:var(--mint)}.coverage-summary .metric-value{font-size:17px}.coverage-summary .metric-label{font-size:9px}}@media(max-width:520px){.coverage-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.coverage-summary .metric-taxonomy{grid-column:2;grid-row:3;text-align:left}.coverage-source{grid-row:4}}
     @media(max-width:520px){.coverage-heading{flex-wrap:wrap}.coverage-download{height:32px}.coverage-heading-title h2{font-size:15px}.coverage-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.coverage-summary .metric{padding:8px}.coverage-summary .metric-label{font-size:8px}}
@@ -38,7 +38,7 @@
 <body>
   <main class="shell">
     <header class="page-header">
-      <div class="page-title-row"><h1 class="page-title"><span class="title-mark" aria-hidden="true"><img class="title-globe" src="./assets/pathogen-atlas-v4-globe.svg?v=20261103-circle-globe-thick" alt=""><img class="title-bacterium" src="./assets/pathogen-atlas-v4-bacterium.png?v=20261103-bacterium-white-fill" alt=""></span><span class="title-name">Pathogen Atlas<span class="title-version">v2.0.17</span></span><span class="title-meta"><span class="title-authors">Authors: <a href="https://experts.exeter.ac.uk/25979-fabrizio-costa" target="_blank" rel="noopener noreferrer">Fabrizio Costa<span class="author-link-glyph" aria-hidden="true">↗</span></a>&nbsp;&nbsp;<a href="https://experts.exeter.ac.uk/20530-michiel-vos" target="_blank" rel="noopener noreferrer">Michiel Vos<span class="author-link-glyph" aria-hidden="true">↗</span></a></span><span class="title-publication">Publications: Michiel Vos, Markus Göker, Richard Bendall, Fabrizio Costa. <cite>Identification and characterisation of bacterial pathogens through Large Language Model-assisted text mining.</cite> <em>bioRxiv</em> 2025.07.29.667369. doi: <a href="https://doi.org/10.1101/2025.07.29.667369" target="_blank" rel="noopener noreferrer">10.1101/2025.07.29.667369</a>.</span></span></h1></div>
+      <div class="page-title-row"><h1 class="page-title"><span class="title-mark" aria-hidden="true"><img class="title-globe" src="./assets/pathogen-atlas-v4-globe.svg?v=20261103-circle-globe-thick" alt=""><img class="title-bacterium" src="./assets/pathogen-atlas-v4-bacterium.png?v=20261103-bacterium-white-fill" alt=""></span><span class="title-name">Pathogen Atlas<span class="title-version">v2.0.18</span></span><span class="title-meta"><span class="title-authors">Authors: <a href="https://experts.exeter.ac.uk/25979-fabrizio-costa" target="_blank" rel="noopener noreferrer">Fabrizio Costa<span class="author-link-glyph" aria-hidden="true">↗</span></a>&nbsp;&nbsp;<a href="https://experts.exeter.ac.uk/20530-michiel-vos" target="_blank" rel="noopener noreferrer">Michiel Vos<span class="author-link-glyph" aria-hidden="true">↗</span></a></span><span class="title-publication">Publications: Michiel Vos, Markus Göker, Richard Bendall, Fabrizio Costa. <cite>Identification and characterisation of bacterial pathogens through Large Language Model-assisted text mining.</cite> <em>bioRxiv</em> 2025.07.29.667369. doi: <a href="https://doi.org/10.1101/2025.07.29.667369" target="_blank" rel="noopener noreferrer">10.1101/2025.07.29.667369</a>.</span></span></h1></div>
     </header>
     <section class="workspace">
       <section class="card chart-card" aria-label="Interactive species map">
@@ -64,7 +64,7 @@
           </div>
           <div class="control-options">
             <div class="toggle-row"><label class="size-toggle" for="sizeByPathogenicIndex" title="Marker area follows the normalized Pathogenic Interest Index, from zero to one."><input id="sizeByPathogenicIndex" type="checkbox" checked><span>Size by Pathogenic Interest Index</span></label><div class="minimum-filter"><label for="minPathogenPmids" title="Only show species with at least this many pathogen supporting PMIDs.">Min supporting PMIDs</label><input id="minPathogenPmids" type="number" min="0" step="1" value="0" inputmode="numeric"></div></div>
-            <div class="control-actions"><details class="appearance-menu"><summary aria-label="Color settings" title="Color settings"><i class="bi bi-sliders" aria-hidden="true"></i><span>Color settings</span></summary><div class="appearance-popover"><div class="field"><label for="colorMap">Feature colormap</label><select id="colorMap"><option value="Inferno" selected>Inferno</option><option value="Viridis">Viridis</option><option value="Cividis">Cividis</option><option value="Plasma">Plasma</option><option value="Magma">Magma</option><option value="Turbo">Turbo</option><option value="RdBu">Red–Blue</option><option value="RdYlBu">Red–Yellow–Blue</option><option value="YlGnBu">Yellow–Green–Blue</option><option value="Blues">Blues</option></select></div><label class="size-toggle" for="reverseColorMap" title="Reverse the selected continuous feature colormap."><input id="reverseColorMap" type="checkbox" checked><span>Reverse colormap</span></label><label class="size-toggle" for="blackPointEdges" title="Turn on for black circle edges; turn off for white edges."><input id="blackPointEdges" type="checkbox" checked><span>Black circle edges</span></label></div></details><button class="button" id="resetView" type="button"><i class="bi bi-house-door" aria-hidden="true"></i><span>Reset map view</span></button></div>
+            <div class="control-actions"><details class="appearance-menu"><summary aria-label="Color settings" title="Color settings"><i class="bi bi-sliders" aria-hidden="true"></i><span>Color settings</span></summary><div class="appearance-popover"><div class="field"><label for="colorMap">Feature colormap</label><select id="colorMap"><option value="Inferno">Inferno</option><option value="Viridis">Viridis</option><option value="Cividis">Cividis</option><option value="Plasma">Plasma</option><option value="Magma">Magma</option><option value="Turbo">Turbo</option><option value="RdBu">Red–Blue</option><option value="RdYlBu">Red–Yellow–Blue</option><option value="YlGnBu" selected>Yellow–Green–Blue</option><option value="Blues">Blues</option></select></div><label class="size-toggle" for="reverseColorMap" title="Reverse the selected continuous feature colormap."><input id="reverseColorMap" type="checkbox" checked><span>Reverse colormap</span></label><label class="size-toggle" for="blackPointEdges" title="Turn on for black circle edges; turn off for white edges."><input id="blackPointEdges" type="checkbox" checked><span>Black circle edges</span></label></div></details><button class="button" id="resetView" type="button"><i class="bi bi-house-door" aria-hidden="true"></i><span>Reset map view</span></button></div>
           </div>
         </div>
         <div id="color-description" class="color-description" aria-live="polite"></div>
@@ -763,7 +763,9 @@
             ? `${formatNumber(yes)} yes out of ${formatNumber(answered)} scored abstracts (${formatFraction(value)}).`
             : 'No scored abstracts are available for this feature and species.';
           expertDetail.hidden = false;
-          if (featureEvidenceBox.open) loadFeatureEvidence();
+          expertProfile.open = true;
+          featureEvidenceBox.open = true;
+          loadFeatureEvidence();
         });
         categoryGrids.get(category).append(button);
       });
@@ -805,7 +807,7 @@
         mark.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();select();}});
       });
       details.append(scoreOverview);
-      expertProfile.append(expertGroups, expertDetail);
+      expertProfile.append(expertGroups);
       details.append(expertProfile);
 
       const papersBox = document.createElement('details');
@@ -842,6 +844,7 @@
       details.insertBefore(scoreOverview, expertProfile);
       const featureEvidenceBox = document.createElement('details');
       featureEvidenceBox.className = 'expert-profile pmid-box';
+      featureEvidenceBox.id = 'feature-support';
       const featureEvidenceSummary = document.createElement('summary');
       const featureEvidenceTitle = document.createElement('span');
       featureEvidenceTitle.textContent = 'Abstracts supporting selected feature';
@@ -861,7 +864,7 @@
         option.textContent = label;
         featureEvidenceSort.append(option);
       }
-      featureEvidenceContent.append(featureEvidenceSort);
+      featureEvidenceContent.append(expertDetail, featureEvidenceSort);
       const featureEvidencePapers = document.createElement('div');
       featureEvidencePapers.className = 'pmids';
       const featureEvidenceEmpty = document.createElement('div');
@@ -981,7 +984,7 @@
       byId('searchRecordCount').textContent = formatNumber(dataset.counts.pubmed_search_records);
       addColorOptions(dataset);
       secondarySelectionOptions();
-      byId('colorMap').value = 'Inferno';
+      byId('colorMap').value = 'YlGnBu';
       byId('reverseColorMap').checked = true;
       byId('blackPointEdges').checked = true;
       byId('sizeByPathogenicIndex').checked = true;
