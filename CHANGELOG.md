@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.24] - 2026-11-04
+
+- Align coverage metric values at the top of their cells and vertically center taxonomy provenance beneath the metrics.
+
 ## [2.0.23] - 2026-11-04
 
 - Bottom-align the Wikipedia and GBIF links with the species name.
