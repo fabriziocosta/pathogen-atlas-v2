@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.15] - 2026-11-04
+
+- Match the V4 masthead typography rules so the publication reference sits on a separate row below the authors.
+
 ## [2.0.14] - 2026-11-04
 
 - Strengthen only the bacterium silhouette outline in the Explorer masthead.
