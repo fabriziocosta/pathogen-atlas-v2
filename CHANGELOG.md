@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.17] - 2026-11-04
+
+- Keep author link arrows inline with their names, matching V4.
+
 ## [2.0.16] - 2026-11-04
 
 - Match the V4 masthead layout by placing Publications beneath Authors.
