@@ -46,10 +46,10 @@ fraction, estimated pathogen-supporting publications, and organism PubMed
 records. Both profile scores are log1p-normalized against the maximum value in
 the v2 dataset. Enable **Size by Pathogenic Interest Index** to scale map point
 area by the saved V2 index; clear it to return to uniform point sizes.
-The map opens with **Salmonella enterica** selected and colored by the
-Epidemiology feature, with reversed Yellow–Green–Blue and Pathogenic Interest
+The map opens with **Escherichia coli** selected and colored by the estimated
+pathogenicity fraction, with reversed Yellow–Green–Blue and Pathogenic Interest
 Index sizing enabled. The feature explanation appears above the map. Expand the
-lower **+** control to compare any two feature or taxonomy values in a second
+lower **+** control to compare any two feature, pathogenicity estimate, or taxonomy values in a second
 2D plot; its colors follow the main map selection, and zero or unscored values
 can be shown in gray.
 To open a species profile directly, append `?species=` and the URL-encoded

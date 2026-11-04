@@ -33,12 +33,13 @@
     .secondary-controls{column-gap:18px;row-gap:14px;align-items:start;margin-bottom:14px}.secondary-controls>div label{margin-bottom:8px}.secondary-zero-toggle{min-height:20px;margin:2px auto 12px;gap:9px;line-height:1.45}.secondary-zero-toggle input{flex:0 0 14px}.secondary-hint{margin:0 0 14px;line-height:1.5;text-align:center}
     .secondary-controls label.secondary-zero-toggle{display:flex;gap:12px;padding:4px 8px}.secondary-controls label.secondary-zero-toggle input{margin-right:2px}
     @media(max-width:600px){.secondary-panel{padding:12px 14px 0}.secondary-controls{grid-template-columns:1fr;gap:12px}.secondary-zero-toggle{grid-column:1;margin:2px auto 4px}}
+    .page-title .title-atlas{display:inline;color:var(--teal-dark)}
   </style>
 </head>
 <body>
   <main class="shell">
     <header class="page-header">
-      <div class="page-title-row"><h1 class="page-title"><span class="title-mark" aria-hidden="true"><img class="title-globe" src="./assets/pathogen-atlas-v4-globe.svg?v=20261103-circle-globe-thick" alt=""><img class="title-bacterium" src="./assets/pathogen-atlas-v4-bacterium.png?v=20261103-bacterium-white-fill" alt=""></span><span class="title-name">Pathogen Atlas<span class="title-version">v2.0.18</span></span><span class="title-meta"><span class="title-authors">Authors: <a href="https://experts.exeter.ac.uk/25979-fabrizio-costa" target="_blank" rel="noopener noreferrer">Fabrizio Costa<span class="author-link-glyph" aria-hidden="true">↗</span></a>&nbsp;&nbsp;<a href="https://experts.exeter.ac.uk/20530-michiel-vos" target="_blank" rel="noopener noreferrer">Michiel Vos<span class="author-link-glyph" aria-hidden="true">↗</span></a></span><span class="title-publication">Publications: Michiel Vos, Markus Göker, Richard Bendall, Fabrizio Costa. <cite>Identification and characterisation of bacterial pathogens through Large Language Model-assisted text mining.</cite> <em>bioRxiv</em> 2025.07.29.667369. doi: <a href="https://doi.org/10.1101/2025.07.29.667369" target="_blank" rel="noopener noreferrer">10.1101/2025.07.29.667369</a>.</span></span></h1></div>
+      <div class="page-title-row"><h1 class="page-title"><span class="title-mark" aria-hidden="true"><img class="title-globe" src="./assets/pathogen-atlas-v4-globe.svg?v=20261103-circle-globe-thick" alt=""><img class="title-bacterium" src="./assets/pathogen-atlas-v4-bacterium.png?v=20261103-bacterium-white-fill" alt=""></span><span class="title-name">Pathogen <span class="title-atlas">Atlas</span><span class="title-version">v2.0.20</span></span><span class="title-meta"><span class="title-authors">Authors: <a href="https://experts.exeter.ac.uk/25979-fabrizio-costa" target="_blank" rel="noopener noreferrer">Fabrizio Costa<span class="author-link-glyph" aria-hidden="true">↗</span></a>&nbsp;&nbsp;<a href="https://experts.exeter.ac.uk/20530-michiel-vos" target="_blank" rel="noopener noreferrer">Michiel Vos<span class="author-link-glyph" aria-hidden="true">↗</span></a></span><span class="title-publication">Publications: Michiel Vos, Markus Göker, Richard Bendall, Fabrizio Costa. <cite>Identification and characterisation of bacterial pathogens through Large Language Model-assisted text mining.</cite> <em>bioRxiv</em> 2025.07.29.667369. doi: <a href="https://doi.org/10.1101/2025.07.29.667369" target="_blank" rel="noopener noreferrer">10.1101/2025.07.29.667369</a>.</span></span></h1></div>
     </header>
     <section class="workspace">
       <section class="card chart-card" aria-label="Interactive species map">
@@ -282,7 +283,7 @@
         }
         select.append(group);
       }
-      select.value = data.features.some((feature) => feature.id === 'epidemiology') ? 'feature:epidemiology' : 'taxonomy:phylum';
+      select.value = 'score:pathogenicity_fraction';
     }
 
     function addProfileMetrics(records) {
@@ -1057,8 +1058,8 @@
         message.className = 'placeholder';
         message.textContent = `No Pathogen Atlas profile was found for “${requestedSpecies}”.`;
         byId('details').replaceChildren(message);
-      } else if (dataset.species.some((record) => record.species === 'Salmonella enterica')) {
-        selectSpecies('Salmonella enterica');
+      } else if (dataset.species.some((record) => record.species === 'Escherichia coli')) {
+        selectSpecies('Escherichia coli');
       } else {
         renderMap();
       }

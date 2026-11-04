@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.20] - 2026-11-04
+
+- Match V4's default color and selected bacterium, and color Atlas in the header dark green.
+
 ## [2.0.19] - 2026-11-04
 
 - Add pathogenicity estimates and scores as numeric map color options, matching V4.
