@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.21] - 2026-11-04
+
+- Center the feature-score legend in the profile panel.
+
 ## [2.0.20] - 2026-11-04
 
 - Match V4's default color and selected bacterium, and color Atlas in the header dark green.
