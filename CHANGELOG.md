@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.16] - 2026-11-04
+
+- Match the V4 masthead layout by placing Publications beneath Authors.
+
 ## [2.0.15] - 2026-11-04
 
 - Match the V4 masthead typography rules so the publication reference sits on a separate row below the authors.
