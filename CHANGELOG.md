@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.31] - 2026-11-06
+
+- Open Custom Question Explorer in a fresh window for each handoff so stale windows cannot lose their opener connection.
+
 ## [2.0.30] - 2026-11-06
 
 - Use simple GET requests for NCBI Taxonomy resolution to avoid browser CORS preflight failures.
