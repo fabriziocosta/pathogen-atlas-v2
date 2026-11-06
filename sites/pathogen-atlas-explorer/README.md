@@ -90,6 +90,13 @@ also writes compact species-keyed files under `dist/evidence/`; these contain
 only accepted PubMed IDs, titles, years, and DOI values. The build stops if
 the coordinate table has duplicate species or the evidence table has no
 acceptance flag, and includes the `pathogenic_index.parquet` data table for Pathogenic Interest Index marker sizing.
+The build also adds the prevalidated NCBI Taxonomy IDs from
+`data/species_ncbi_taxonomy_ids.csv`, which keeps V2's Custom Questions handoff
+aligned with V4 without requiring live taxonomy lookups in the browser. The ID
+table covers every plotted species and is based on NCBI Taxonomy names, using
+the corresponding V4 taxonomy IDs for legacy names absent from NCBI's current
+name set. The NCBI Taxonomy dump used for the mapping was retrieved on
+2026-11-06; V4 legacy IDs come from its 2026-06-27 taxonomy snapshot.
 The payload includes total PubMed search records and the Wikipedia and GBIF URLs
 from their lookup tables. The build also copies the repository logo into `dist/assets/` for
 the explorer header. Rebuild it after updating the Phase 4 tables or rerunning

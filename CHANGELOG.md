@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.32] - 2026-11-06
+
+- Match V4's Custom Questions handoff window name and use pre-bundled NCBI Taxonomy IDs, removing the fragile per-click taxonomy lookup.
+- Bundle validated NCBI taxonomy IDs for all bacteria in the V2 explorer and retain them when rebuilding the static dataset.
+
 ## [2.0.31] - 2026-11-06
 
 - Open Custom Question Explorer in a fresh window for each handoff so stale windows cannot lose their opener connection.

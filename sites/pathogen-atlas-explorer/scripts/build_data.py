@@ -21,6 +21,7 @@ SYNONYM_MAPPING = ROOT / "data/01_species/release/species_synonym_mapping.parque
 FEATURE_ANSWERS = RELEASE / "domain_expert_answers.parquet"
 WIKIPEDIA_LINKS = ROOT / "sites/pathogen-atlas-explorer/data/species_wikipedia_links.csv"
 GBIF_LINKS = ROOT / "sites/pathogen-atlas-explorer/data/species_gbif_links.csv"
+NCBI_TAXONOMY_IDS = ROOT / "sites/pathogen-atlas-explorer/data/species_ncbi_taxonomy_ids.csv"
 OUTPUT = ROOT / "sites/pathogen-atlas-explorer/dist/explorer-data.json"
 BRAND_ASSETS = (
     (ROOT / "assets/pathogen-atlas-logo.png", OUTPUT.parent / "assets/pathogen-atlas-logo.png"),
@@ -59,6 +60,7 @@ def build_payload(
     wikipedia_links: pd.DataFrame | None = None,
     feature_answers: pd.DataFrame | None = None,
     gbif_links: pd.DataFrame | None = None,
+    ncbi_taxonomy_ids: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Join release tables into the small client-side explorer contract."""
     required_coordinates = {"canonical_species", "imste_1", "imste_2"}
@@ -97,6 +99,19 @@ def build_payload(
             str(row.canonical_species): clean_text(row.gbif_url)
             for row in gbif_links[["canonical_species", "gbif_url"]].itertuples(index=False)
         }
+    ncbi_taxid_by_species: dict[str, str] = {}
+    if ncbi_taxonomy_ids is not None:
+        required_taxonomy_ids = {"canonical_species", "ncbi_taxid"}
+        if not required_taxonomy_ids.issubset(ncbi_taxonomy_ids.columns):
+            raise ValueError("NCBI taxonomy ID table is missing canonical_species or ncbi_taxid.")
+        if ncbi_taxonomy_ids["canonical_species"].duplicated().any():
+            raise ValueError("NCBI taxonomy ID table must contain exactly one row per species.")
+        ncbi_taxid_by_species = {
+            str(row.canonical_species): str(row.ncbi_taxid).strip()
+            for row in ncbi_taxonomy_ids[["canonical_species", "ncbi_taxid"]].itertuples(index=False)
+        }
+        if any(not taxid.isdigit() for taxid in ncbi_taxid_by_species.values()):
+            raise ValueError("Every NCBI taxonomy ID must contain only digits.")
     synonyms_by_species: dict[str, set[str]] = {}
     if synonym_mapping is not None:
         required_synonyms = {"input_name", "canonical_species", "mapping_type"}
@@ -225,6 +240,16 @@ def build_payload(
                 "GBIF lookup table must cover the coordinate species exactly; "
                 f"missing examples: {missing_gbif_rows}, extra examples: {extra_gbif_rows}."
             )
+    if ncbi_taxonomy_ids is not None:
+        coordinate_names = set(coordinate_species)
+        taxonomy_names = set(ncbi_taxid_by_species)
+        missing_taxonomy_rows = sorted(coordinate_names - taxonomy_names)[:5]
+        extra_taxonomy_rows = sorted(taxonomy_names - coordinate_names)[:5]
+        if missing_taxonomy_rows or extra_taxonomy_rows:
+            raise ValueError(
+                "NCBI taxonomy ID table must cover the coordinate species exactly; "
+                f"missing examples: {missing_taxonomy_rows}, extra examples: {extra_taxonomy_rows}."
+            )
     coordinate_rows = coordinates
 
     records: list[dict[str, Any]] = []
@@ -242,6 +267,7 @@ def build_payload(
         records.append(
             {
                 "species": name,
+                "ncbi_taxid": ncbi_taxid_by_species.get(name),
                 "wikipedia_url": wikipedia_by_species.get(name),
                 "gbif_url": gbif_by_species.get(name),
                 "x": float(point.imste_1),
@@ -300,7 +326,8 @@ def main() -> None:
         SYNONYM_MAPPING,
         WIKIPEDIA_LINKS,
         GBIF_LINKS,
-        BRAND_LOGO,
+        NCBI_TAXONOMY_IDS,
+        BRAND_ASSETS[0][0],
     ]
     missing = [str(path) for path in required_paths if not path.exists()]
     if missing:
@@ -317,6 +344,7 @@ def main() -> None:
         wikipedia_links=pd.read_csv(WIKIPEDIA_LINKS, keep_default_na=False),
         feature_answers=pd.read_parquet(FEATURE_ANSWERS, columns=["canonical_species", "pmid", "question_id", "answer_yes"]),
         gbif_links=pd.read_csv(GBIF_LINKS, keep_default_na=False),
+        ncbi_taxonomy_ids=pd.read_csv(NCBI_TAXONOMY_IDS, dtype={"ncbi_taxid": str}, keep_default_na=False),
     )
     evidence_shards = payload.pop("_evidence_shard_payloads")
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
@@ -334,7 +362,6 @@ def main() -> None:
         json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )
-    BRAND_LOGO_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     for source, destination in BRAND_ASSETS:
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, destination)
