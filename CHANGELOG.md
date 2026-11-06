@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.27] - 2026-11-06
+
+- Remove the black drop shadow from the masthead bacterium mark to match V4.
+
 ## [2.0.26] - 2026-11-06
 
 - Replace the secondary-plot plus button with a labeled “Feature plots” disclosure and chevron.
