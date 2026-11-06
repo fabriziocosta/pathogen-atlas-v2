@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.30] - 2026-11-06
+
+- Use simple GET requests for NCBI Taxonomy resolution to avoid browser CORS preflight failures.
+
 ## [2.0.29] - 2026-11-06
 
 - Send Custom Question Explorer selections with validated NCBI Taxonomy IDs for Human and bacteria.

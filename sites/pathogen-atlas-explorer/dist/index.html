@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore human pathogen evidence, domain-expert features, taxonomy, and PubMed records by species.">
-  <title>Pathogen Atlas V2 v2.0.29 · Evidence Explorer</title>
+  <title>Pathogen Atlas V2 v2.0.30 · Evidence Explorer</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     :root{color-scheme:light;--ink:#132a43;--muted:#63758b;--line:#dce5ed;--canvas:#f1f5f6;--surface:#fff;--teal:#14756e;--teal-dark:#0f625d;--mint:#eaf5f2;--shadow:0 8px 28px rgba(24,49,69,.055)}
@@ -49,7 +49,7 @@
 <body>
   <main class="shell">
     <header class="page-header">
-      <div class="page-title-row"><h1 class="page-title"><span class="title-mark" aria-hidden="true"><img class="title-globe" src="./assets/pathogen-atlas-v4-globe.svg?v=20261103-circle-globe-thick" alt=""><img class="title-bacterium" src="./assets/pathogen-atlas-v4-bacterium.png?v=20261103-bacterium-white-fill" alt=""></span><span class="title-name">Pathogen <span class="title-atlas">Atlas</span><span class="title-version">v2.0.29</span></span><span class="title-meta"><span class="title-authors">Authors: <a href="https://experts.exeter.ac.uk/25979-fabrizio-costa" target="_blank" rel="noopener noreferrer">Fabrizio Costa<span class="author-link-glyph" aria-hidden="true">↗</span></a>&nbsp;&nbsp;<a href="https://experts.exeter.ac.uk/20530-michiel-vos" target="_blank" rel="noopener noreferrer">Michiel Vos<span class="author-link-glyph" aria-hidden="true">↗</span></a></span><span class="title-publication">Publications: Michiel Vos, Markus Göker, Richard Bendall, Fabrizio Costa. <cite>Identification and characterisation of bacterial pathogens through Large Language Model-assisted text mining.</cite> <em>bioRxiv</em> 2025.07.29.667369. doi: <a href="https://doi.org/10.1101/2025.07.29.667369" target="_blank" rel="noopener noreferrer">10.1101/2025.07.29.667369</a>.</span></span></h1></div>
+      <div class="page-title-row"><h1 class="page-title"><span class="title-mark" aria-hidden="true"><img class="title-globe" src="./assets/pathogen-atlas-v4-globe.svg?v=20261103-circle-globe-thick" alt=""><img class="title-bacterium" src="./assets/pathogen-atlas-v4-bacterium.png?v=20261103-bacterium-white-fill" alt=""></span><span class="title-name">Pathogen <span class="title-atlas">Atlas</span><span class="title-version">v2.0.30</span></span><span class="title-meta"><span class="title-authors">Authors: <a href="https://experts.exeter.ac.uk/25979-fabrizio-costa" target="_blank" rel="noopener noreferrer">Fabrizio Costa<span class="author-link-glyph" aria-hidden="true">↗</span></a>&nbsp;&nbsp;<a href="https://experts.exeter.ac.uk/20530-michiel-vos" target="_blank" rel="noopener noreferrer">Michiel Vos<span class="author-link-glyph" aria-hidden="true">↗</span></a></span><span class="title-publication">Publications: Michiel Vos, Markus Göker, Richard Bendall, Fabrizio Costa. <cite>Identification and characterisation of bacterial pathogens through Large Language Model-assisted text mining.</cite> <em>bioRxiv</em> 2025.07.29.667369. doi: <a href="https://doi.org/10.1101/2025.07.29.667369" target="_blank" rel="noopener noreferrer">10.1101/2025.07.29.667369</a>.</span></span></h1></div>
     </header>
     <section class="workspace">
       <section class="card chart-card" aria-label="Interactive species map">
@@ -207,11 +207,8 @@
     async function fetchNCBIJSON(endpoint, parameters) {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const response = await fetch(`${NCBI_EUTILS_URL}/${endpoint}.fcgi`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
-            body: new URLSearchParams(parameters),
-          });
+          const query = new URLSearchParams(parameters);
+          const response = await fetch(`${NCBI_EUTILS_URL}/${endpoint}.fcgi?${query}`, {method: 'GET'});
           if (response.ok) return await response.json();
           if (![429, 500, 502, 503, 504].includes(response.status) || attempt === 2) {
             throw new Error(`NCBI Taxonomy lookup failed (HTTP ${response.status}).`);
