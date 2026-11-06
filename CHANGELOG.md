@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.26] - 2026-11-06
+
+- Replace the secondary-plot plus button with a labeled “Feature plots” disclosure and chevron.
+
 ## [2.0.25] - 2026-11-04
 
 - Add gray inline species-name completion with Tab acceptance and Enter search; tighten the taxonomy-source spacing.
