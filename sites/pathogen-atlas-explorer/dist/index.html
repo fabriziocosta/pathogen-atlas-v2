@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore human pathogen evidence, domain-expert features, taxonomy, and PubMed records by species.">
-  <title>Pathogen Atlas V2 v2.0.18 · Evidence Explorer</title>
+  <title>Pathogen Atlas V2 v2.0.28 · Evidence Explorer</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     :root{color-scheme:light;--ink:#132a43;--muted:#63758b;--line:#dce5ed;--canvas:#f1f5f6;--surface:#fff;--teal:#14756e;--teal-dark:#0f625d;--mint:#eaf5f2;--shadow:0 8px 28px rgba(24,49,69,.055)}
@@ -34,12 +34,22 @@
     .secondary-controls label.secondary-zero-toggle{display:flex;gap:12px;padding:4px 8px}.secondary-controls label.secondary-zero-toggle input{margin-right:2px}
     @media(max-width:600px){.secondary-panel{padding:12px 14px 0}.secondary-controls{grid-template-columns:1fr;gap:12px}.secondary-zero-toggle{grid-column:1;margin:2px auto 4px}}
     .page-title .title-atlas{display:inline;color:var(--teal-dark)}
+    .secondary-controls{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:0 18px;align-items:start;max-width:none;margin-bottom:14px}
+    .secondary-question-action{display:grid;gap:5px;align-content:start;max-width:240px;padding-top:20px}
+    .secondary-question-button{height:40px;white-space:nowrap;border-color:#b9d6d0;background:#eaf5f2;color:#0f625d}
+    .secondary-question-button:hover:not(:disabled){background:#dff0eb;border-color:#9dc9c0}
+    .secondary-question-button:disabled{cursor:wait;opacity:.72}
+    .custom-question-status{color:#637b91;font-size:10px;line-height:1.4}
+    .custom-question-status:empty{display:none}
+    .custom-question-status.error{color:#aa4141}
+    .custom-question-status.ok{color:#137b70}
+    @media(max-width:600px){.secondary-question-action{max-width:none;padding-top:0}.secondary-zero-toggle{grid-column:1;margin:2px auto 4px}}
   </style>
 </head>
 <body>
   <main class="shell">
     <header class="page-header">
-      <div class="page-title-row"><h1 class="page-title"><span class="title-mark" aria-hidden="true"><img class="title-globe" src="./assets/pathogen-atlas-v4-globe.svg?v=20261103-circle-globe-thick" alt=""><img class="title-bacterium" src="./assets/pathogen-atlas-v4-bacterium.png?v=20261103-bacterium-white-fill" alt=""></span><span class="title-name">Pathogen <span class="title-atlas">Atlas</span><span class="title-version">v2.0.27</span></span><span class="title-meta"><span class="title-authors">Authors: <a href="https://experts.exeter.ac.uk/25979-fabrizio-costa" target="_blank" rel="noopener noreferrer">Fabrizio Costa<span class="author-link-glyph" aria-hidden="true">↗</span></a>&nbsp;&nbsp;<a href="https://experts.exeter.ac.uk/20530-michiel-vos" target="_blank" rel="noopener noreferrer">Michiel Vos<span class="author-link-glyph" aria-hidden="true">↗</span></a></span><span class="title-publication">Publications: Michiel Vos, Markus Göker, Richard Bendall, Fabrizio Costa. <cite>Identification and characterisation of bacterial pathogens through Large Language Model-assisted text mining.</cite> <em>bioRxiv</em> 2025.07.29.667369. doi: <a href="https://doi.org/10.1101/2025.07.29.667369" target="_blank" rel="noopener noreferrer">10.1101/2025.07.29.667369</a>.</span></span></h1></div>
+      <div class="page-title-row"><h1 class="page-title"><span class="title-mark" aria-hidden="true"><img class="title-globe" src="./assets/pathogen-atlas-v4-globe.svg?v=20261103-circle-globe-thick" alt=""><img class="title-bacterium" src="./assets/pathogen-atlas-v4-bacterium.png?v=20261103-bacterium-white-fill" alt=""></span><span class="title-name">Pathogen <span class="title-atlas">Atlas</span><span class="title-version">v2.0.28</span></span><span class="title-meta"><span class="title-authors">Authors: <a href="https://experts.exeter.ac.uk/25979-fabrizio-costa" target="_blank" rel="noopener noreferrer">Fabrizio Costa<span class="author-link-glyph" aria-hidden="true">↗</span></a>&nbsp;&nbsp;<a href="https://experts.exeter.ac.uk/20530-michiel-vos" target="_blank" rel="noopener noreferrer">Michiel Vos<span class="author-link-glyph" aria-hidden="true">↗</span></a></span><span class="title-publication">Publications: Michiel Vos, Markus Göker, Richard Bendall, Fabrizio Costa. <cite>Identification and characterisation of bacterial pathogens through Large Language Model-assisted text mining.</cite> <em>bioRxiv</em> 2025.07.29.667369. doi: <a href="https://doi.org/10.1101/2025.07.29.667369" target="_blank" rel="noopener noreferrer">10.1101/2025.07.29.667369</a>.</span></span></h1></div>
     </header>
     <section class="workspace">
       <section class="card chart-card" aria-label="Interactive species map">
@@ -71,7 +81,7 @@
         <div id="color-description" class="color-description" aria-live="polite"></div>
         <div id="map" role="img" aria-label="Zoomable IMSTE species feature map"></div>
         <div class="secondary-toggle-wrap"><button class="secondary-toggle" id="secondary-toggle" type="button" aria-expanded="false" aria-controls="secondary-panel" title="Show feature plots"><span>Feature plots</span><span class="secondary-toggle-chevron" aria-hidden="true"></span></button></div>
-        <div class="secondary-panel" id="secondary-panel" hidden><div class="secondary-controls"><div><label for="secondary-x-trait">X axis</label><select id="secondary-x-trait"><option value="">Choose a trait…</option></select></div><div><label for="secondary-y-trait">Y axis</label><select id="secondary-y-trait"><option value="">Choose a trait…</option></select></div><label class="secondary-zero-toggle" for="secondary-show-zero"><input id="secondary-show-zero" type="checkbox" checked><span>Show points with zero or unscored values (gray)</span></label></div><p class="secondary-hint" id="secondary-hint">Choose traits for both axes to compare their values. Color follows the selection above.</p><div class="secondary-map" id="secondary-map"></div></div>
+        <div class="secondary-panel" id="secondary-panel" hidden><div class="secondary-controls"><div><label for="secondary-x-trait">X axis</label><select id="secondary-x-trait"><option value="">Choose a trait…</option></select></div><div><label for="secondary-y-trait">Y axis</label><select id="secondary-y-trait"><option value="">Choose a trait…</option></select></div><div class="secondary-question-action"><button class="button secondary-question-button" id="custom-question-launch" type="button" aria-label="Open Custom Question Explorer with visible Human bacteria evidence" title="Use visible, non-gray Human bacteria with confirmed PubMed evidence">Custom questions ↗</button><div class="custom-question-status" id="custom-question-status" role="status" aria-live="polite"></div></div><label class="secondary-zero-toggle" for="secondary-show-zero"><input id="secondary-show-zero" type="checkbox" checked><span>Show points with zero or unscored values (gray)</span></label></div><p class="secondary-hint" id="secondary-hint">Choose traits for both axes to compare their values. Color follows the selection above.</p><div class="secondary-map" id="secondary-map"></div></div>
       </section>
       <aside class="card details" id="details" aria-live="polite">
         <div class="detail-kicker">Species profile</div>
@@ -185,6 +195,133 @@
         throw error;
       }
     }
+
+    const CUSTOM_QUESTIONS_URL = 'https://pathogen-atlas-custom-questions.xfcosta.chatgpt.site';
+    const CUSTOM_HANDOFF_TYPE = 'pathogen-atlas-custom-questions/handoff-v1';
+    let customQuestionBusy = false;
+
+    function setCustomQuestionStatus(message, state = '') {
+      const status = byId('custom-question-status');
+      status.className = `custom-question-status${state ? ` ${state}` : ''}`;
+      status.textContent = message;
+    }
+
+    function downloadCustomQuestionSelection(payload) {
+      const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'}));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'pathogen-atlas-v2-human-bacteria-selection.json';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    async function buildCustomQuestionSelection() {
+      const visibleRows = filteredRecords();
+      const colorSelection = currentColorSelection();
+      const coloredRows = visibleRows.filter(record => traitHasCount(record, colorSelection, traitValue(record, colorSelection)));
+      const evidenceRows = coloredRows.filter(record => Number(record.n_pmids || 0) > 0 && record.evidence_shard);
+      if (!evidenceRows.length) throw new Error('No visible non-gray Human bacteria have confirmed PubMed evidence. Adjust search, minimum supporting PMIDs, or Color by.');
+
+      const selection = [];
+      let completed = 0;
+      for (let start = 0; start < evidenceRows.length; start += 8) {
+        const batch = evidenceRows.slice(start, start + 8);
+        const evidence = await Promise.all(batch.map(record => loadSpeciesEvidence(record)));
+        batch.forEach((record, index) => {
+          const pmids = [...new Set(evidence[index].map(row => String(row.pmid || '')).filter(pmid => /^\d+$/.test(pmid)))];
+          if (pmids.length) {
+            const pathogenId = String(record.species);
+            selection.push({
+              record_id: `${pathogenId}::9606`,
+              pathogen: {id: pathogenId, name: String(record.species)},
+              host: {id: '9606', name: 'Human · Homo sapiens'},
+              pair_selection_status: 'accepted',
+              pmids,
+            });
+          }
+        });
+        completed += batch.length;
+        setCustomQuestionStatus(`Preparing confirmed PubMed evidence · ${completed.toLocaleString()} / ${evidenceRows.length.toLocaleString()} pathogens`);
+      }
+
+      if (!selection.length) throw new Error('No confirmed PubMed records were found for the visible Human bacteria.');
+      return {
+        schema_version: '1',
+        snapshot: {
+          host_ids: ['9606'],
+          pathogen_groups: ['Bacteria'],
+          search: byId('search').value.trim(),
+          minimum_supporting_pmids: Math.max(0, Math.floor(Number(byId('minPathogenPmids').value) || 0)),
+          color_by: byId('colorBy').value,
+          captured_at: new Date().toISOString(),
+          visible_point_count: visibleRows.length,
+          non_gray_point_count: coloredRows.length,
+          excluded_gray_point_count: visibleRows.length - coloredRows.length,
+          excluded_hidden_point_count: Math.max(0, dataset.species.length - visibleRows.length),
+        },
+        selection,
+      };
+    }
+
+    byId('custom-question-launch').addEventListener('click', async () => {
+      if (customQuestionBusy || !dataset) return;
+      customQuestionBusy = true;
+      const button = byId('custom-question-launch');
+      button.disabled = true;
+      setCustomQuestionStatus('Preparing visible, confirmed Human bacteria…');
+
+      let popup = null;
+      try { popup = window.open(CUSTOM_QUESTIONS_URL, 'pathogen-atlas-custom-questions'); popup?.focus(); } catch {}
+      let payload = null, ready = false, sent = false, finished = false, timer = null;
+      const origin = new URL(CUSTOM_QUESTIONS_URL).origin;
+      const finish = (message, state = '') => {
+        if (finished) return;
+        finished = true;
+        window.removeEventListener('message', onMessage);
+        if (timer) clearTimeout(timer);
+        setCustomQuestionStatus(message, state);
+        customQuestionBusy = false;
+        button.disabled = false;
+      };
+      const fallback = message => {
+        if (finished) return;
+        if (payload) downloadCustomQuestionSelection(payload);
+        finish(message, '');
+      };
+      const send = () => {
+        if (!ready || !payload || sent || finished) return;
+        if (new TextEncoder().encode(JSON.stringify(payload)).byteLength > 3_000_000) {
+          fallback('Selection is large; a JSON file was downloaded to import into Custom Question Explorer.');
+          return;
+        }
+        try {
+          popup.postMessage({type: CUSTOM_HANDOFF_TYPE, action: 'selection', payload}, origin);
+          sent = true;
+        } catch {
+          fallback('Direct handoff failed; a JSON file was downloaded for import.');
+        }
+      };
+      const onMessage = event => {
+        if (event.origin !== origin || event.source !== popup || event.data?.type !== CUSTOM_HANDOFF_TYPE) return;
+        if (event.data.action === 'ready') { ready = true; send(); }
+        else if (event.data.action === 'received' && sent) finish('Selection transferred to Custom Question Explorer.', 'ok');
+      };
+      window.addEventListener('message', onMessage);
+      try {
+        payload = await buildCustomQuestionSelection();
+        if (!popup) {
+          downloadCustomQuestionSelection(payload);
+          finish('Popup blocked; JSON selection downloaded. Open the app to import it.');
+          return;
+        }
+        timer = setTimeout(() => fallback('The app did not confirm the handoff; a JSON file was downloaded for import.'), 25000);
+        send();
+      } catch (error) {
+        finish(error.message, 'error');
+      }
+    });
 
     function sortEvidence(papers, sortBy) {
       const dateValue = (paper) => {
