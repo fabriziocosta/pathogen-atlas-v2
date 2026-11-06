@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.29] - 2026-11-06
+
+- Send Custom Question Explorer selections with validated NCBI Taxonomy IDs for Human and bacteria.
+
 ## [2.0.28] - 2026-11-06
 
 - Add a single-row Custom Questions launcher beside the secondary plot axes, handing off visible non-gray Human–Bacteria points and their confirmed PubMed PMIDs to the Custom Question Explorer.

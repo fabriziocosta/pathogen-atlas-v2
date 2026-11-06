@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore human pathogen evidence, domain-expert features, taxonomy, and PubMed records by species.">
-  <title>Pathogen Atlas V2 v2.0.28 · Evidence Explorer</title>
+  <title>Pathogen Atlas V2 v2.0.29 · Evidence Explorer</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     :root{color-scheme:light;--ink:#132a43;--muted:#63758b;--line:#dce5ed;--canvas:#f1f5f6;--surface:#fff;--teal:#14756e;--teal-dark:#0f625d;--mint:#eaf5f2;--shadow:0 8px 28px rgba(24,49,69,.055)}
@@ -49,7 +49,7 @@
 <body>
   <main class="shell">
     <header class="page-header">
-      <div class="page-title-row"><h1 class="page-title"><span class="title-mark" aria-hidden="true"><img class="title-globe" src="./assets/pathogen-atlas-v4-globe.svg?v=20261103-circle-globe-thick" alt=""><img class="title-bacterium" src="./assets/pathogen-atlas-v4-bacterium.png?v=20261103-bacterium-white-fill" alt=""></span><span class="title-name">Pathogen <span class="title-atlas">Atlas</span><span class="title-version">v2.0.28</span></span><span class="title-meta"><span class="title-authors">Authors: <a href="https://experts.exeter.ac.uk/25979-fabrizio-costa" target="_blank" rel="noopener noreferrer">Fabrizio Costa<span class="author-link-glyph" aria-hidden="true">↗</span></a>&nbsp;&nbsp;<a href="https://experts.exeter.ac.uk/20530-michiel-vos" target="_blank" rel="noopener noreferrer">Michiel Vos<span class="author-link-glyph" aria-hidden="true">↗</span></a></span><span class="title-publication">Publications: Michiel Vos, Markus Göker, Richard Bendall, Fabrizio Costa. <cite>Identification and characterisation of bacterial pathogens through Large Language Model-assisted text mining.</cite> <em>bioRxiv</em> 2025.07.29.667369. doi: <a href="https://doi.org/10.1101/2025.07.29.667369" target="_blank" rel="noopener noreferrer">10.1101/2025.07.29.667369</a>.</span></span></h1></div>
+      <div class="page-title-row"><h1 class="page-title"><span class="title-mark" aria-hidden="true"><img class="title-globe" src="./assets/pathogen-atlas-v4-globe.svg?v=20261103-circle-globe-thick" alt=""><img class="title-bacterium" src="./assets/pathogen-atlas-v4-bacterium.png?v=20261103-bacterium-white-fill" alt=""></span><span class="title-name">Pathogen <span class="title-atlas">Atlas</span><span class="title-version">v2.0.29</span></span><span class="title-meta"><span class="title-authors">Authors: <a href="https://experts.exeter.ac.uk/25979-fabrizio-costa" target="_blank" rel="noopener noreferrer">Fabrizio Costa<span class="author-link-glyph" aria-hidden="true">↗</span></a>&nbsp;&nbsp;<a href="https://experts.exeter.ac.uk/20530-michiel-vos" target="_blank" rel="noopener noreferrer">Michiel Vos<span class="author-link-glyph" aria-hidden="true">↗</span></a></span><span class="title-publication">Publications: Michiel Vos, Markus Göker, Richard Bendall, Fabrizio Costa. <cite>Identification and characterisation of bacterial pathogens through Large Language Model-assisted text mining.</cite> <em>bioRxiv</em> 2025.07.29.667369. doi: <a href="https://doi.org/10.1101/2025.07.29.667369" target="_blank" rel="noopener noreferrer">10.1101/2025.07.29.667369</a>.</span></span></h1></div>
     </header>
     <section class="workspace">
       <section class="card chart-card" aria-label="Interactive species map">
@@ -198,7 +198,66 @@
 
     const CUSTOM_QUESTIONS_URL = 'https://pathogen-atlas-custom-questions.xfcosta.chatgpt.site';
     const CUSTOM_HANDOFF_TYPE = 'pathogen-atlas-custom-questions/handoff-v1';
+    const NCBI_EUTILS_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+    const ncbiTaxonomyCache = new Map();
     let customQuestionBusy = false;
+
+    const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+
+    async function fetchNCBIJSON(endpoint, parameters) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const response = await fetch(`${NCBI_EUTILS_URL}/${endpoint}.fcgi`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
+            body: new URLSearchParams(parameters),
+          });
+          if (response.ok) return await response.json();
+          if (![429, 500, 502, 503, 504].includes(response.status) || attempt === 2) {
+            throw new Error(`NCBI Taxonomy lookup failed (HTTP ${response.status}).`);
+          }
+        } catch (error) {
+          if (attempt === 2 || !/Failed to fetch|NetworkError|HTTP (429|500|502|503|504)/i.test(error.message)) throw error;
+        }
+        await wait(800 * (attempt + 1));
+      }
+      throw new Error('NCBI Taxonomy lookup failed after retries.');
+    }
+
+    async function resolveNCBITaxonomyIds(records) {
+      const missing = records.filter(record => !ncbiTaxonomyCache.has(record.species));
+      const batchSize = 50;
+      for (let start = 0; start < missing.length; start += batchSize) {
+        const batch = missing.slice(start, start + batchSize);
+        const term = batch.map(record => `"${record.species.replace(/["\\]/g, ' ')}"[Scientific Name]`).join(' OR ');
+        const search = await fetchNCBIJSON('esearch', {db: 'taxonomy', term, retmode: 'json', retmax: '10000'});
+        const taxids = [...new Set((search.esearchresult?.idlist || []).filter(id => /^\d+$/.test(id)))];
+        if (taxids.length) {
+          const summary = await fetchNCBIJSON('esummary', {db: 'taxonomy', id: taxids.join(','), retmode: 'json'});
+          const idsByName = new Map();
+          for (const id of summary.result?.uids || []) {
+            const item = summary.result[id];
+            const name = String(item?.scientificname || '').trim().toLocaleLowerCase();
+            if (!name || !/^\d+$/.test(String(item.uid || id))) continue;
+            if (!idsByName.has(name)) idsByName.set(name, new Set());
+            idsByName.get(name).add(String(item.uid || id));
+          }
+          for (const record of batch) {
+            const matches = idsByName.get(record.species.trim().toLocaleLowerCase());
+            if (matches?.size === 1) ncbiTaxonomyCache.set(record.species, [...matches][0]);
+          }
+        }
+        setCustomQuestionStatus(`Resolving NCBI Taxonomy IDs · ${Math.min(start + batchSize, missing.length).toLocaleString()} / ${missing.length.toLocaleString()} bacteria`);
+        if (start + batchSize < missing.length) await wait(360);
+      }
+
+      const unresolved = records.filter(record => !ncbiTaxonomyCache.has(record.species));
+      if (unresolved.length) {
+        const examples = unresolved.slice(0, 5).map(record => record.species).join(', ');
+        throw new Error(`Could not match ${unresolved.length} selected bacteria to unique NCBI Taxonomy IDs (${examples}${unresolved.length > 5 ? ', …' : ''}). Narrow the selection or retry.`);
+      }
+      return ncbiTaxonomyCache;
+    }
 
     function setCustomQuestionStatus(message, state = '') {
       const status = byId('custom-question-status');
@@ -223,6 +282,7 @@
       const coloredRows = visibleRows.filter(record => traitHasCount(record, colorSelection, traitValue(record, colorSelection)));
       const evidenceRows = coloredRows.filter(record => Number(record.n_pmids || 0) > 0 && record.evidence_shard);
       if (!evidenceRows.length) throw new Error('No visible non-gray Human bacteria have confirmed PubMed evidence. Adjust search, minimum supporting PMIDs, or Color by.');
+      const ncbiTaxids = await resolveNCBITaxonomyIds(evidenceRows);
 
       const selection = [];
       let completed = 0;
@@ -232,11 +292,11 @@
         batch.forEach((record, index) => {
           const pmids = [...new Set(evidence[index].map(row => String(row.pmid || '')).filter(pmid => /^\d+$/.test(pmid)))];
           if (pmids.length) {
-            const pathogenId = String(record.species);
+            const pathogenId = `ncbi:${ncbiTaxids.get(record.species)}`;
             selection.push({
-              record_id: `${pathogenId}::9606`,
+              record_id: `${pathogenId}::ncbi:9606`,
               pathogen: {id: pathogenId, name: String(record.species)},
-              host: {id: '9606', name: 'Human · Homo sapiens'},
+              host: {id: 'ncbi:9606', name: 'Homo sapiens'},
               pair_selection_status: 'accepted',
               pmids,
             });
@@ -250,8 +310,8 @@
       return {
         schema_version: '1',
         snapshot: {
-          host_ids: ['9606'],
-          pathogen_groups: ['Bacteria'],
+          host_ids: ['ncbi:9606'],
+          pathogen_groups: ['bacteria'],
           search: byId('search').value.trim(),
           minimum_supporting_pmids: Math.max(0, Math.floor(Number(byId('minPathogenPmids').value) || 0)),
           color_by: byId('colorBy').value,
